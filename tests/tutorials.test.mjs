@@ -24,5 +24,5 @@ test("links are absolute and titled", () => {
 
 test("no em dashes in player-facing text", () => {
   const text = JSON.stringify(TUTORIALS) + JSON.stringify(LEVELS);
-  assert.ok(!text.includes("—"));
+  assert.ok(!text.includes("\u2014"));
 });
