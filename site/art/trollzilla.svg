@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#140b26"/><stop offset="1" stop-color="#2b1140"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dff6a"/><stop offset="1" stop-color="#19c26b"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="800" height="500" fill="url(#sky)"/>
+  <!-- tiny datacenter skyline -->
+  <g fill="#3a2a5c" stroke="#5d4a8a">
+    <rect x="40" y="380" width="70" height="90"/><rect x="125" y="350" width="55" height="120"/>
+    <rect x="600" y="360" width="60" height="110"/><rect x="675" y="390" width="90" height="80"/>
+  </g>
+  <g fill="#ffd34d">
+    <rect x="52" y="395" width="8" height="5"/><rect x="70" y="410" width="8" height="5"/><rect x="138" y="370" width="8" height="5"/>
+    <rect x="615" y="378" width="8" height="5"/><rect x="690" y="405" width="8" height="5"/><rect x="740" y="420" width="8" height="5"/>
+  </g>
+  <rect y="470" width="800" height="30" fill="#1a1030"/>
+  <!-- Trollzilla: a sine-wave body rearing up -->
+  <g filter="url(#glow)">
+    <path d="M 210 470 C 230 390, 300 390, 320 330 S 380 220, 430 250 S 500 330, 520 250 S 560 120, 600 150 C 630 170, 640 210, 615 225"
+          fill="none" stroke="url(#body)" stroke-width="46" stroke-linecap="round"/>
+    <!-- head -->
+    <ellipse cx="600" cy="150" rx="58" ry="44" fill="#7dff6a"/>
+    <!-- googly eyes -->
+    <circle cx="580" cy="132" r="17" fill="#fff"/><circle cx="586" cy="136" r="8" fill="#111"/>
+    <circle cx="625" cy="128" r="13" fill="#fff"/><circle cx="621" cy="131" r="6" fill="#111"/>
+    <!-- grin with blocky teeth -->
+    <path d="M 565 168 Q 600 198 645 162" fill="#2b0a2a" stroke="#0b5a2e" stroke-width="4"/>
+    <g fill="#fff"><rect x="578" y="170" width="9" height="9"/><rect x="595" y="176" width="9" height="9"/><rect x="613" y="174" width="9" height="9"/><rect x="630" y="167" width="8" height="8"/></g>
+    <!-- antenna horns -->
+    <path d="M 575 112 L 560 70" stroke="#7dff6a" stroke-width="6"/><circle cx="560" cy="66" r="7" fill="#ff4fd8"/>
+    <path d="M 625 108 L 645 64" stroke="#7dff6a" stroke-width="6"/><circle cx="646" cy="60" r="7" fill="#ff4fd8"/>
+    <!-- signal arcs from horns -->
+    <g fill="none" stroke="#ff4fd8" stroke-width="3" opacity="0.8">
+      <path d="M 545 55 Q 560 40 575 55"/><path d="M 538 47 Q 560 25 582 47"/>
+      <path d="M 632 49 Q 646 34 661 49"/><path d="M 625 41 Q 646 19 668 41"/>
+    </g>
+  </g>
+  <!-- oozing binary drips -->
+  <g font-family="Courier New, monospace" font-weight="bold" fill="#7dff6a">
+    <text x="300" y="380" font-size="18">1</text><text x="302" y="402" font-size="15" opacity="0.8">0</text><text x="304" y="421" font-size="12" opacity="0.6">1</text>
+    <text x="430" y="300" font-size="18">0</text><text x="432" y="322" font-size="15" opacity="0.8">1</text><text x="433" y="341" font-size="12" opacity="0.6">1</text><text x="434" y="357" font-size="10" opacity="0.4">0</text>
+    <text x="515" y="300" font-size="18">1</text><text x="517" y="322" font-size="15" opacity="0.8">1</text><text x="518" y="341" font-size="12" opacity="0.6">0</text>
+    <text x="600" y="215" font-size="16">0</text><text x="601" y="234" font-size="13" opacity="0.7">1</text>
+  </g>
+  <!-- a crunched server rack in its grip -->
+  <g transform="rotate(-18 230 455)"><rect x="205" y="425" width="50" height="55" fill="#555" stroke="#999"/><rect x="212" y="433" width="36" height="6" fill="#ff4545"/><rect x="212" y="445" width="36" height="6" fill="#ff4545"/></g>
+  <!-- title -->
+  <text x="40" y="70" font-family="Impact, Arial Black, sans-serif" font-size="56" fill="#ffd34d" stroke="#ff4fd8" stroke-width="2">TROLLZILLA</text>
+  <text x="42" y="100" font-family="Courier New, monospace" font-size="18" fill="#c9b8ff">RARE EVENT // region us-east-1 is being eaten</text>
+  <rect x="40" y="118" width="250" height="28" rx="4" fill="#ff4545"/>
+  <text x="52" y="138" font-family="Courier New, monospace" font-size="16" fill="#fff" font-weight="bold">HLT010 FAIL  storage 0%</text>
+</svg>

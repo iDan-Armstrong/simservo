@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIMServo</title>
+  <meta name="description" content="A server administration training game that runs the real rdsops checks in your browser.">
+  <link rel="icon" href="art/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/simservo.css">
+</head>
+<body>
+  <!-- ============================== setup wizard ============================== -->
+  <section id="wizard" class="wizard" aria-labelledby="wiz-title">
+    <div class="wiz-frame">
+      <header class="wiz-head">
+        <div class="logo">SIM<span>Servo</span></div>
+        <div id="wiz-title" class="wiz-sub">Operations Center Configuration Wizard <span class="dim">v0.1</span></div>
+      </header>
+      <ol class="wiz-steps" id="wiz-steps">
+        <li data-step="post"><span class="light"></span>Power-on self test</li>
+        <li data-step="firmware"><span class="light"></span>Download controller firmware</li>
+        <li data-step="flash"><span class="light"></span>Flash firmware</li>
+        <li data-step="rules"><span class="light"></span>Install rules engine</li>
+        <li data-step="selftest"><span class="light"></span>Rules engine self-test</li>
+        <li data-step="callsign"><span class="light"></span>Name your operations center</li>
+      </ol>
+      <div class="wiz-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="wiz-fill"></div></div>
+      <div class="wiz-bytes" id="wiz-bytes">&nbsp;</div>
+      <pre class="wiz-term" id="wiz-term" aria-live="polite"></pre>
+      <form class="wiz-callsign hidden" id="wiz-form">
+        <label for="callsign">Operations center callsign</label>
+        <div class="row">
+          <input id="callsign" maxlength="20" value="OPS-1" autocomplete="off" spellcheck="false">
+          <button type="submit" class="btn primary" id="wiz-go">Begin shift</button>
+        </div>
+        <p class="dim small" id="wiz-resume"></p>
+      </form>
+      <p class="wiz-foot dim small">The "firmware" is real: Pyodide (Python compiled to WebAssembly) and the
+        <a href="https://github.com/iDan-Armstrong/rds-geodatabase-ops" target="_blank" rel="noopener">rdsops</a>
+        package, downloaded from this site. Every finding in the game comes from rdsops.</p>
+    </div>
+  </section>
+
+  <!-- ============================== the game ============================== -->
+  <main id="game" class="game hidden">
+    <header class="hud">
+      <div class="logo small-logo">SIM<span>Servo</span></div>
+      <div class="hud-item"><span class="k">Center</span><span id="hud-callsign">OPS-1</span></div>
+      <div class="hud-item"><span class="k">Clock</span><span id="hud-clock">D1 06:00</span></div>
+      <div class="hud-item"><span class="k">Budget</span><span id="hud-budget">$0</span></div>
+      <div class="hud-item"><span class="k">AWS bill</span><span id="hud-bill">$0/mo</span></div>
+      <div class="hud-item"><span class="k">Uptime</span><span id="hud-uptime">100%</span></div>
+      <div class="hud-level">
+        <div class="lvl"><span id="hud-level">LV 1</span> <span id="hud-title" class="dim">Night Shift Intern</span></div>
+        <div class="xpbar"><div id="hud-xp"></div></div>
+        <div class="dim small" id="hud-xptext">0 / 60 XP</div>
+      </div>
+      <div class="speed" role="group" aria-label="Game speed">
+        <button class="btn tiny" data-speed="0" title="Pause">II</button>
+        <button class="btn tiny" data-speed="1" title="1 game hour every 2 seconds">&gt;</button>
+        <button class="btn tiny" data-speed="3" title="3x">&gt;&gt;</button>
+        <button class="btn tiny" data-speed="8" title="8x">&gt;&gt;&gt;</button>
+      </div>
+      <button class="btn tiny" id="btn-career">Career</button>
+      <button class="btn tiny" id="btn-help">Help</button>
+    </header>
+
+    <div class="grid">
+      <section class="panel map-panel" aria-label="Network map">
+        <h2>Network</h2>
+        <svg id="netmap" viewBox="0 0 420 330" role="img" aria-label="Network diagram"></svg>
+        <div class="gauges">
+          <div class="gauge"><span class="k">Connections</span><div class="gbar"><div id="g-conn"></div></div><span id="g-conn-t" class="small"></span></div>
+          <div class="gauge"><span class="k">Storage used</span><div class="gbar"><div id="g-store"></div></div><span id="g-store-t" class="small"></span></div>
+        </div>
+        <div id="status-line" class="status-line"></div>
+      </section>
+
+      <section class="panel findings-panel" aria-label="Findings">
+        <div class="panel-head">
+          <h2>Findings <span class="dim small" id="find-summary"></span></h2>
+          <button class="btn" id="btn-scan">Scan now</button>
+        </div>
+        <div id="pending" class="pending hidden"></div>
+        <ul id="findings" class="findings"></ul>
+      </section>
+
+      <aside class="panel side-panel">
+        <h2>Quests</h2>
+        <ul id="quests" class="quests"></ul>
+        <h2 id="shop-h">Upgrades</h2>
+        <ul id="shop" class="shop"></ul>
+        <h2>Achievements <span id="ach-count" class="dim small"></span></h2>
+        <ul id="achievements" class="achievements"></ul>
+      </aside>
+
+      <section class="panel log-panel" aria-label="Event log">
+        <h2>Ops log</h2>
+        <ol id="log" class="log"></ol>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============================== overlays ============================== -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="troll" class="troll hidden" aria-live="assertive">
+    <img src="art/trollzilla.svg" alt="Trollzilla, a cheesy signal-wave monster dripping binary code">
+    <button class="btn primary" id="troll-ok">Brace for impact</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

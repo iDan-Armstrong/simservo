@@ -1,0 +1,8 @@
+node_modules/
+build/
+site/vendor/
+__pycache__/
+.pytest_cache/
+test-results/
+*.png
+!site/art/*.png

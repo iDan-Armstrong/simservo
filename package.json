@@ -1,0 +1,18 @@
+{
+  "name": "simservo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Server administration training game that runs the real rdsops checks in the browser",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "rdsops": "bash tools/fetch-rdsops.sh",
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "serve": "python3 -m http.server 8080 --directory site",
+    "e2e": "node tests/e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "pyodide": "0.27.8"
+  }
+}
