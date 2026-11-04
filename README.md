@@ -16,7 +16,7 @@ tool, running inside the page through Pyodide.
 
 | Real | Simulated |
 | --- | --- |
-| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
+| The checks: rdsops `inventory`, `health`, `maintenance`, `compat` and `restore-drill`, at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
 | Finding codes, severities, thresholds and fix text | The numbers: connections, dead rows, WAL, storage, transaction ID age |
 | The commands each action shows (AWS CLI, SQL, console steps) | Time (one tick is one game hour) and money |
 | Tutorial links to AWS, Esri, PostgreSQL and PostGIS docs, checked by CI | Scenarios, quests, XP and achievements |
@@ -37,7 +37,12 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Tier 1 (Fundamentals, levels 1 to 10) is playable now.
+- 100 levels in ten tiers. Tier 1 (Fundamentals, levels 1 to 10) and Tier 4 (Backup
+  and Restore, levels 31 to 40) are playable now, because their real tools exist.
+- Restore drills from level 6: the game simulates the restore timeline (scaled by
+  database size and instance class) and the real `rdsops restore-drill` plans and scores
+  it against recovery time and data-loss targets. Accidents (a dropped table) can only
+  be undone with a point-in-time restore, which only works if backups were on.
 - Each tier is backed by a real tool. Tiers open as those tools are built: monitoring,
   upgrades, restore drills, then ArcGIS Server, Portal and Data Store administration.
 - An intro tutorial, and a tutorial at each level that adds something, with links to
@@ -62,8 +67,8 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | Test | What it proves |
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops, and every scenario raises the code it claims to teach when its snapshot runs through the real evaluators |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, a finding is fixed through the UI, 48 game hours play, Trollzilla takes the region down |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops; every scenario raises the code it teaches through the real evaluators; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, a finding is fixed through the UI, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

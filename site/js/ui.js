@@ -150,11 +150,38 @@ function renderSide(game, handlers) {
     $("shop").querySelectorAll("button[data-up]").forEach((b) => b.addEventListener("click", () => handlers.upgrade(b.dataset.up)));
   }
 
+  renderOps(game, handlers);
+
   const got = new Set(s.achievements);
   const shown = ACHIEVEMENTS.filter((a) => !a.hidden || got.has(a.id));
   $("ach-count").textContent = `${got.size}/${ACHIEVEMENTS.length}`;
   $("achievements").innerHTML = shown.map((a) => `<li class="badge ${got.has(a.id) ? "got" : ""}" title="${esc(a.title)}: ${esc(a.desc)}">${esc(a.title.split(" ").map((w) => w[0]).join("").slice(0, 2))}</li>`).join("")
     + (got.size < ACHIEVEMENTS.length ? `<li class="badge" title="Hidden achievements remain">?</li>` : "");
+}
+
+function renderOps(game, handlers) {
+  const s = game.s;
+  const f = features(s.level);
+  $("ops-h").classList.toggle("hidden", !f.drills);
+  const box = $("ops");
+  box.classList.toggle("hidden", !f.drills);
+  if (!f.drills) return;
+  const busy = game.busy() ? "disabled" : "";
+  const lost = (s.db.lost || []).map((x) => `${x.table.schema}.${x.table.table}`);
+  const last = s.drills && s.drills.last;
+  const { day, hour } = clock(s.tick);
+  const auditLeft = s.auditDue ? s.auditDue - s.tick : null;
+  box.innerHTML = `
+    ${lost.map((n) => `<div class="alert">${esc(n)} was dropped. <button class="btn tiny" data-recover="${esc(n)}" ${busy}>Point-in-time restore</button></div>`).join("")}
+    ${auditLeft != null ? `<div class="alert audit">Audit: prove a restore within ${auditLeft} game hours.</div>` : ""}
+    <div class="row">
+      <button class="btn tiny" data-drill="pitr" ${busy}>Run restore drill</button>
+      ${f.snapshotDrills ? `<button class="btn tiny" data-drill="snapshot" ${busy}>Snapshot drill</button>` : ""}
+    </div>
+    ${last ? `<div class="small dim">Last drill ${last.ran ? "" : "(plan only) "}D${Math.floor(last.tick / 24) + 1}:</div>
+      <ul>${last.findings.filter((x) => x.severity !== "INFO").map((x) => `<li title="${esc(x.detail)}"><span class="mini-sev ${x.severity}">${x.severity}</span>${esc(x.code)} ${esc(x.title)}</li>`).join("")}</ul>` : `<div class="small dim">No drills yet. It is D${day} ${String(hour).padStart(2, "0")}:00; do you know your backups work?</div>`}`;
+  box.querySelectorAll("[data-drill]").forEach((b) => b.addEventListener("click", () => handlers.drill(b.dataset.drill)));
+  box.querySelectorAll("[data-recover]").forEach((b) => b.addEventListener("click", () => handlers.recover(b.dataset.recover)));
 }
 
 export function appendLog(line) {
@@ -171,7 +198,9 @@ export function toast(title, body) {
   const t = document.createElement("div");
   t.className = "toast";
   t.innerHTML = `<b>${esc(title)}</b>${esc(body)}`;
-  $("toasts").appendChild(t);
+  const box = $("toasts");
+  box.appendChild(t);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
   setTimeout(() => t.remove(), 5000);
 }
 

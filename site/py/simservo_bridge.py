@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 
 import rdsops
-from rdsops import compat, health, inventory, maintenance
+from rdsops import compat, drill, health, inventory, maintenance
 
 
 def _dt(value):
@@ -99,6 +99,57 @@ def evaluate(snapshot_json: str) -> str:
     if c:
         out += _tag(compat.check(c["engine_version"], c["arcgis"], c.get("postgis_version")), "compat")
     return json.dumps(out, default=str)
+
+
+def _facts(f: dict) -> drill.BackupFacts:
+    return drill.BackupFacts(
+        source=f["source"],
+        engine_version=f["engine_version"],
+        instance_class=f["instance_class"],
+        retention_days=f["retention_days"],
+        latest_restorable=_dt(f.get("latest_restorable")),
+        earliest_restorable=_dt(f.get("earliest_restorable")),
+        snapshots=[drill.Snapshot(x["identifier"], _dt(x["created"]), x["kind"])
+                   for x in f.get("snapshots", [])],
+        subnet_group=f.get("subnet_group"),
+        security_groups=f.get("security_groups", []),
+        parameter_group=f.get("parameter_group"),
+        iam_auth=f.get("iam_auth", False),
+        deletion_protection=f.get("deletion_protection", False),
+    )
+
+
+def _request(r: dict) -> drill.DrillRequest:
+    r = dict(r)
+    r["restore_time"] = _dt(r.get("restore_time"))
+    return drill.DrillRequest(**r)
+
+
+def drill_plan(payload_json: str) -> str:
+    """Real rdsops restore-drill planning on the game's backup facts."""
+    p = json.loads(payload_json)
+    findings, steps = drill.plan(_request(p["request"]), _facts(p["facts"]), _dt(p["now"]))
+    return json.dumps({"findings": _tag(findings, "restore-drill"), "steps": steps}, default=str)
+
+
+def drill_evaluate(payload_json: str) -> str:
+    """Real rdsops scoring of a simulated drill's timings and checks."""
+    p = json.loads(payload_json)
+    r = p["result"]
+    result = drill.DrillResult(
+        target_id=r["target_id"],
+        restore_point=_dt(r.get("restore_point")),
+        started=_dt(r["started"]),
+        restore_requested=_dt(r.get("restore_requested")),
+        available=_dt(r.get("available")),
+        verified=_dt(r.get("verified")),
+        deleted=_dt(r.get("deleted")),
+        checks=[drill.VerifyCheck(**c) for c in r.get("checks", [])],
+        error=r.get("error"),
+        kept=r.get("kept", False),
+    )
+    return json.dumps(_tag(drill.evaluate(result, _request(p["request"])), "restore-drill"),
+                      default=str)
 
 
 def self_test() -> str:

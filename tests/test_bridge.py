@@ -31,7 +31,7 @@ def catalog():
 def rdsops_codes():
     src = pathlib.Path(rdsops.__file__).parent
     text = "".join(p.read_text() for p in src.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -55,8 +55,16 @@ def test_each_scenario_raises_what_it_teaches(catalog):
     for sc in catalog["scenarios"]:
         if not sc["teaches"]:
             continue
-        findings = evaluate(sc["snapshot"])
-        raised = {f["code"] for f in findings if RANK[f["severity"]] >= RANK["INFO"]}
+        if sc["via"] == "drill-plan":
+            findings = json.loads(simservo_bridge.drill_plan(json.dumps(sc["drillPlan"])))["findings"]
+        elif sc["via"] == "drill-evaluate":
+            findings = json.loads(simservo_bridge.drill_evaluate(json.dumps(sc["drillEvaluate"])))
+        else:
+            findings = evaluate(sc["snapshot"])
+        # Snapshot scenarios must raise a problem; drill scenarios are answered by a drill,
+        # so the code being scored at all (OK when the drill passes) is what counts.
+        floor = RANK["INFO"] if sc["via"] == "snapshot" else RANK["OK"]
+        raised = {f["code"] for f in findings if RANK[f["severity"]] >= floor}
         first = sc["teaches"][0]
         assert first in raised, f"{sc['id']} should raise {first}, raised {sorted(raised)}"
 
@@ -65,3 +73,20 @@ def test_self_test_reports_real_failures():
     out = simservo_bridge.self_test()
     assert f"rdsops {rdsops.__version__}" in out
     assert "CMP003" in out and "FAIL" in out
+
+
+def test_healthy_drill_plans_and_scores_clean(catalog):
+    plan = json.loads(simservo_bridge.drill_plan(json.dumps(catalog["drill"]["plan"])))
+    assert all(RANK[f["severity"]] <= RANK["INFO"] for f in plan["findings"]), plan["findings"]
+    assert any("restore-db-instance-to-point-in-time" in s for s in plan["steps"])
+    scored = json.loads(simservo_bridge.drill_evaluate(json.dumps(catalog["drill"]["evaluate"])))
+    codes = {f["code"]: f["severity"] for f in scored}
+    assert codes["DRL010"] == "OK" and codes["DRL011"] == "OK" and codes["DRL014"] == "OK"
+    assert all(f["source"] == "restore-drill" for f in scored)
+
+
+def test_dropped_table_without_backups_cannot_be_restored(catalog):
+    sc = next(x for x in catalog["scenarios"] if x["id"] == "dropped_table")
+    plan = json.loads(simservo_bridge.drill_plan(json.dumps(sc["drillPlan"])))
+    assert {"code": "DRL001", "severity": "FAIL"}.items() <= next(
+        f for f in plan["findings"] if f["code"] == "DRL001").items()

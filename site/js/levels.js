@@ -6,7 +6,7 @@ export const TIERS = [
   { tier: 1, name: "Fundamentals", subject: "Your first RDS geodatabase", tool: "rdsops inventory, health, maintenance", status: "playable" },
   { tier: 2, name: "Monitoring and Maintenance", subject: "Keeping the database healthy week to week", tool: "rdsops health, maintenance", status: "planned" },
   { tier: 3, name: "Versions and Upgrades", subject: "Esri support matrix, minor patches, blue/green majors", tool: "rdsops compat, upgrade-plan", status: "planned" },
-  { tier: 4, name: "Backup and Restore", subject: "Snapshots, point-in-time restore, timed drills", tool: "rdsops restore-drill (planned)", status: "planned" },
+  { tier: 4, name: "Backup and Restore", subject: "Snapshots, point-in-time restore, timed drills", tool: "rdsops restore-drill", status: "playable" },
   { tier: 5, name: "ArcGIS Server", subject: "Sites, services, pools, logs", tool: "ArcGIS Enterprise admin tool (planned)", status: "planned" },
   { tier: 6, name: "Portal and Federation", subject: "Portal for ArcGIS, federation, identity", tool: "ArcGIS Enterprise admin tool (planned)", status: "planned" },
   { tier: 7, name: "Data Store and Geodatabases", subject: "ArcGIS Data Store, versioning, compress", tool: "ArcGIS Enterprise admin tool (planned)", status: "planned" },
@@ -68,11 +68,12 @@ const UNLOCKS = {
   3: ["Maintenance scan (rdsops maintenance)", "Random scenarios"],
   4: ["More scenarios: slots, duplicates, public access"],
   5: ["Multi-AZ and scaling in the shop", "Availability Zone outages"],
-  6: ["Compatibility scan (rdsops compat)", "Patch-window scenarios"],
-  7: ["Transaction ID wraparound scenarios"],
-  8: ["Production mode: availability gaps become failures"],
+  6: ["Restore drills (rdsops restore-drill)", "Accidents that need a restore", "Audits"],
+  7: ["Compatibility scan (rdsops compat)", "Patch-window scenarios"],
+  8: ["Production mode: availability gaps become failures", "Transaction ID wraparound scenarios"],
   9: ["Faster scenario rate"],
   10: ["Rare events. Something large is out there."],
+  31: ["Snapshot-mode drills", "Tighter recovery target: 30 minutes"],
 };
 
 export const LEVELS = Array.from({ length: 100 }, (_, i) => {
@@ -97,7 +98,9 @@ export function features(level) {
     shop: level >= 2,
     maintenance: level >= 3,
     scenarios: level >= 3,
-    compat: level >= 6,
+    compat: level >= 7,
+    drills: level >= 6,
+    snapshotDrills: level >= 31,
     production: level >= 8,
     scenarioRate: level >= 9 ? 0.12 : 0.09,
   };

@@ -56,6 +56,22 @@ try {
     await page.screenshot({ path: "test-results/game.png" });
   }
 
+  // Restore drill through the real rdsops drill.plan / drill.evaluate
+  await page.evaluate(() => { const g = window.simservo; g.s.level = 6; g.s.xp = Math.max(g.s.xp, 1700); g.s.instance.backupRetention = 7; g.s.pending = null; document.querySelector("#btn-scan").click(); });
+  await page.click("#ops [data-drill='pitr']");
+  const drill = await page.evaluate(() => {
+    for (let i = 0; i < 3; i++) window.simservo.tick();
+    document.querySelector("#btn-scan").click();
+    return window.simservo.s.drills.last;
+  });
+  if (!drill || !drill.ran) fail("restore drill did not run");
+  else {
+    const codes = drill.findings.map((f) => f.code);
+    if (!codes.includes("DRL011") || !drill.findings.every((f) => f.source === "restore-drill")) fail(`drill findings not from rdsops: ${codes}`);
+    console.log("drill:", drill.findings.map((f) => `${f.code} ${f.severity}`).join(", "));
+  }
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/drill.png" });
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

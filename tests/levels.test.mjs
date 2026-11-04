@@ -15,8 +15,9 @@ test("xp thresholds rise and levelForXp inverts them", () => {
   assert.equal(levelForXp(xpForLevel(10) - 1), 9);
 });
 
-test("tier one is playable and every unlock has a tutorial", () => {
-  assert.ok(LEVELS.slice(0, 10).every((l) => l.playable));
-  assert.ok(LEVELS.slice(10).every((l) => !l.playable));
+test("tiers with a real tool are playable and every unlock has a tutorial", () => {
+  const playable = new Set(TIERS.filter((t) => t.status === "playable").map((t) => t.tier));
+  assert.deepEqual([...playable], [1, 4]); // fundamentals, and backup/restore (rdsops restore-drill)
+  for (const l of LEVELS) assert.equal(l.playable, playable.has(l.tier), `level ${l.n}`);
   for (const l of LEVELS) if (l.unlocks.length && l.n > 1) assert.ok(l.tutorial, `level ${l.n}`);
 });

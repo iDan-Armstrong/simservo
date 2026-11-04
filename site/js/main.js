@@ -162,6 +162,20 @@ const handlers = {
     renderAll(game, handlers);
     writeSave(game.s);
   },
+  drill(mode) {
+    const r = game.runDrill(mode);
+    if (!r.ok) toast("Drill not run", r.reason);
+    drain();
+    renderAll(game, handlers);
+    writeSave(game.s);
+  },
+  recover(name) {
+    const r = game.recoverTable(name);
+    if (!r.ok) toast("Restore not possible", r.reason);
+    drain();
+    renderAll(game, handlers);
+    writeSave(game.s);
+  },
   upgrade(id) {
     const u = UPGRADES.find((x) => x.id === id);
     const actionId = u.action || ACTIONS[u.code][0].id;
@@ -177,7 +191,7 @@ async function start() {
   const seed = Number(params.get("seed")) || Math.floor(Math.random() * 1e9);
   game = new Game({
     state: resume ? save : newGame(seed, callsign),
-    evaluate: engine.evaluate,
+    rules: engine,
     forceTrollzilla: params.has("trollzilla"),
   });
   window.simservo = game; // for the curious, and for the end-to-end test

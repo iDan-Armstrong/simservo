@@ -8,6 +8,9 @@ export const LINKS = {
   rdsopsAdrPure: { title: "ADR 0006: checks are pure functions over snapshots", url: `${RDSOPS}/blob/main/docs/adr/0006-checks-are-pure-functions-over-snapshots.md` },
   rdsopsAdrMinor: { title: "ADR 0004: minor upgrades are gated by the Esri matrix", url: `${RDSOPS}/blob/main/docs/adr/0004-minor-upgrades-are-gated.md` },
   rdsopsRunbook: { title: "Runbook: major upgrade with RDS blue/green", url: `${RDSOPS}/blob/main/docs/runbooks/major-upgrade-blue-green.md` },
+  rdsopsDrill: { title: "Runbook: restore drill (rdsops restore-drill)", url: `${RDSOPS}/blob/main/docs/runbooks/restore-drill.md` },
+  awsPitrCli: { title: "AWS CLI: restore-db-instance-to-point-in-time", url: "https://docs.aws.amazon.com/cli/latest/reference/rds/restore-db-instance-to-point-in-time.html" },
+  awsSnapshotsMgmt: { title: "AWS: Managing automated backups", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ManagingAutomatedBackups.html" },
   rdsopsGdb: { title: "Enterprise geodatabase on RDS: setup notes", url: `${RDSOPS}/blob/main/docs/geodatabase-on-rds.md` },
   awsRds: { title: "AWS: What is Amazon RDS?", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html" },
   awsVpc: { title: "AWS: Working with a DB instance in a VPC (public access)", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html" },
@@ -139,7 +142,27 @@ export const TUTORIALS = {
     ],
   },
   "level-6": {
-    title: "Level 6: Versions and the Esri support matrix",
+    title: "Level 6: Restore drills",
+    cards: [
+      {
+        heading: "A backup you never restored is a hope",
+        body: "rdsops restore-drill restores your instance to a throwaway copy, times how long until the copy is usable, connects and checks the data, then deletes the copy. The source is never touched. Run one from the Operations panel; the real rdsops scores it.",
+        links: L("rdsopsDrill", "awsPitr"),
+      },
+      {
+        heading: "RTO and RPO",
+        body: "Recovery time objective (RTO): how long until people can work again. Recovery point objective (RPO): how much recent data you can afford to lose. Point-in-time restore gets RPO down to about five minutes; a nightly snapshot means up to a day of lost edits. Your targets for now: RTO 60 minutes, RPO 15.",
+        links: L("awsBackups", "awsSnapshotsMgmt"),
+      },
+      {
+        heading: "Accidents and audits",
+        body: "From now on someone may drop a table, and the only way back is a point-in-time restore to just before it happened. That only works if backups are on and the moment is inside the retention window, which is why seven days matters. Auditors may also ask for proof that restores work.",
+        links: L("awsPitrCli", "awsDelete"),
+      },
+    ],
+  },
+  "level-7": {
+    title: "Level 7: Versions and the Esri support matrix",
     cards: [
       {
         heading: "rdsops compat",
@@ -153,23 +176,18 @@ export const TUTORIALS = {
       },
     ],
   },
-  "level-7": {
-    title: "Level 7: Transaction ID wraparound",
-    cards: [
-      {
-        heading: "The 2-billion-transaction clock",
-        body: "PostgreSQL transaction IDs wrap around after about 2 billion. Vacuum freezes old rows so that never matters. If freezing falls behind, the database eventually stops accepting writes to protect itself.",
-        links: L("pgVacuum"),
-      },
-    ],
-  },
   "level-8": {
-    title: "Level 8: Production mode",
+    title: "Level 8: Production mode and wraparound",
     cards: [
       {
         heading: "Availability gaps are now failures",
         body: "rdsops inventory has a --production flag. With it, single-AZ, short backup retention and missing deletion protection stop being warnings and become failures. Your shop just became production.",
         links: L("awsDelete", "awsMultiAz", "awsBackups"),
+      },
+      {
+        heading: "The 2-billion-transaction clock",
+        body: "PostgreSQL transaction IDs wrap around after about 2 billion. Vacuum freezes old rows so that never matters. If freezing falls behind, the database eventually stops accepting writes to protect itself.",
+        links: L("pgVacuum"),
       },
     ],
   },
@@ -193,6 +211,17 @@ export const TUTORIALS = {
       },
     ],
   },
+};
+
+TUTORIALS["level-31"] = {
+  title: "Level 31: Snapshot drills and tighter targets",
+  cards: [
+    {
+      heading: "Snapshots versus point in time",
+      body: "A snapshot drill restores the newest snapshot instead of a point in time. It is how you would recover in another account or region from a copied snapshot, and it shows how much data a snapshot-only plan would lose. Your recovery time target is now 30 minutes.",
+      links: [LINKS.rdsopsDrill, LINKS.awsSnapshotsMgmt, LINKS.awsPitr],
+    },
+  ],
 };
 
 export function allLinks() {

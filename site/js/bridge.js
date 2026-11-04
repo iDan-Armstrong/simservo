@@ -83,5 +83,11 @@ export async function bootPython({ base = "./", onStage = () => {} } = {}) {
     evaluate(snapshot) {
       return JSON.parse(bridge.evaluate(JSON.stringify(snapshot)));
     },
+    drillPlan(payload) {
+      return JSON.parse(bridge.drill_plan(JSON.stringify(payload)));
+    },
+    drillEvaluate(payload) {
+      return JSON.parse(bridge.drill_evaluate(JSON.stringify(payload)));
+    },
   };
 }

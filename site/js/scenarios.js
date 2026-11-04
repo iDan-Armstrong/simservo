@@ -106,7 +106,7 @@ export const SCENARIOS = [
     category: "force-majeure",
     blurb: "The maintenance window applied a new minor version automatically. It came with a newer PostGIS.",
     teaches: ["CMP003", "INV008"],
-    minLevel: 6, weight: 3,
+    minLevel: 7, weight: 3,
     when: (s) => s.instance.postgis === "3.5.2",
     start(s, log) {
       if (s.instance.autoMinor) {
@@ -142,8 +142,35 @@ export const SCENARIOS = [
     category: "accident",
     blurb: "Someone turned off autovacuum on a busy table 'for the bulk load' and never turned it back on. Transaction ID age is climbing.",
     teaches: ["HLT005"],
-    minLevel: 7, weight: 2,
+    minLevel: 8, weight: 2,
     start(s) { s.db.xidAge = Math.max(s.db.xidAge, 620_000_000); },
+  },
+  {
+    id: "dropped_table",
+    title: "DROP TABLE on the wrong window",
+    category: "accident",
+    blurb: "Someone ran a cleanup script in the production window instead of test. sewer.manholes is gone, and every map with manholes on it is broken.",
+    teaches: ["DRL001", "DRL002"],
+    via: "drill-plan",
+    minLevel: 6, weight: 3,
+    when: (s) => s.db.tables.some((t) => t.table === "manholes"),
+    start(s) {
+      const i = s.db.tables.findIndex((t) => t.table === "manholes");
+      const [t] = s.db.tables.splice(i, 1);
+      s.db.lost = s.db.lost || [];
+      s.db.lost.push({ table: t, tick: s.tick });
+    },
+  },
+  {
+    id: "audit",
+    title: "The auditor wants proof",
+    category: "compliance",
+    blurb: "An auditor asks for evidence that backups can actually be restored, within your 60-minute recovery target. You have 48 hours.",
+    teaches: ["DRL011"],
+    via: "drill-evaluate",
+    minLevel: 6, weight: 2,
+    when: (s) => !s.auditDue,
+    start(s) { s.auditDue = s.tick + 48; },
   },
   {
     id: "trollzilla",

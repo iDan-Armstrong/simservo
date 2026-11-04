@@ -4,6 +4,7 @@
 import { ACTIONS } from "../site/js/actions.js";
 import { clock, newGame, rng, snapshot, step } from "../site/js/engine.js";
 import { SCENARIOS } from "../site/js/scenarios.js";
+import { drillRequest, planPayload, simulateDrill } from "../site/js/drills.js";
 
 function businessHours(s, rand) {
   while (clock(s.tick).hour !== 15) step(s, rand);
@@ -16,8 +17,26 @@ const scenarios = SCENARIOS.map((sc) => {
   businessHours(s, rand);
   sc.start(s, () => {});
   step(s, rand);
-  return { id: sc.id, teaches: sc.teaches, snapshot: snapshot(s) };
+  const out = { id: sc.id, teaches: sc.teaches, via: sc.via || "snapshot", snapshot: snapshot(s) };
+  if (sc.via === "drill-plan") {
+    // the recovery request a player would make, with backups off (retention 0)
+    const lost = s.db.lost[0];
+    const off = structuredClone(s);
+    off.instance.backupRetention = 0;
+    off.db.snapshots = [];
+    out.drillPlan = planPayload(off, drillRequest(off, { mode: "pitr", restoreTick: lost.tick, level: 6 }));
+  }
+  if (sc.via === "drill-evaluate") {
+    out.drillEvaluate = simulateDrill(s, drillRequest(s, { level: 6 }), rand).payload;
+  }
+  return out;
 });
+
+// A normal drill plan and result for a healthy lab, for the parity test.
+const healthy = newGame(12);
+healthy.instance.backupRetention = 7;
+const hreq = drillRequest(healthy, { level: 6 });
+const drill = { plan: planPayload(healthy, hreq), evaluate: simulateDrill(healthy, hreq, rng(12)).payload };
 
 const fresh = newGame(3);
 step(fresh, rng(3));
@@ -27,4 +46,5 @@ console.log(JSON.stringify({
   teaches: [...new Set(SCENARIOS.flatMap((x) => x.teaches))],
   fresh: snapshot(fresh),
   scenarios,
+  drill,
 }));

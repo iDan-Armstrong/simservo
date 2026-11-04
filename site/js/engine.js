@@ -80,7 +80,10 @@ export function newGame(seed = 1, callsign = "OPS-1") {
         table("sde", "sde_states", 3_000, 30, 80),
       ],
       unusedIndexes: [], duplicateIndexes: [], invalidIndexes: [],
+      snapshots: [{ identifier: "rds:egdb-lab-2026-01-04-07-00", tick: -23, kind: "automated" }],
+      lost: [], // tables dropped by accident, waiting for a restore
     },
+    drills: { history: [], last: null },
   };
 }
 
@@ -142,7 +145,8 @@ export function step(s, rand) {
     s.budget -= s.revenuePerHour; // lost business while down
   } else {
     s.uptime.up += 1;
-    s.budget += s.revenuePerHour * (0.5 + load);
+    const broken = (s.db.lost || []).length ? 0.5 : 1; // maps with a missing layer earn less
+    s.budget += s.revenuePerHour * (0.5 + load) * broken;
   }
   s.budget -= monthlyCost(s) / HOURS_PER_MONTH;
 

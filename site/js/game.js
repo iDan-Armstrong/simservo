@@ -7,6 +7,7 @@ import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
+import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
 
@@ -23,9 +24,13 @@ export function sourcesFor(level) {
 }
 
 export class Game {
-  constructor({ state, evaluate, seed = 1, forceTrollzilla = false }) {
+  // rules: { evaluate, drillPlan, drillEvaluate } from the real rdsops (bridge.js).
+  // `evaluate` alone is accepted for tests that do not touch drills.
+  constructor({ state, rules, evaluate, seed = 1, forceTrollzilla = false }) {
     this.s = state || newGame(seed);
-    this.evaluate = evaluate;
+    ensureBackupState(this.s);
+    this.rules = rules || { evaluate };
+    this.evaluate = this.rules.evaluate;
     this.rand = rng((this.s.seed * 7919 + this.s.tick) >>> 0);
     this.findings = [];
     this.events = []; // drained by the UI each frame
@@ -53,7 +58,9 @@ export class Game {
   tick() {
     const s = this.s;
     for (const n of step(s, this.rand)) this.log(n);
+    backupTick(s);
     this.finishPending();
+    this.checkAudit();
     this.runScenarios();
     if (s.counters.trollzillaTick != null && !s.counters.survivedTrollzilla && s.tick - s.counters.trollzillaTick >= 168) {
       s.counters.survivedTrollzilla = true;
@@ -193,9 +200,110 @@ export class Game {
     if (!s.pending || s.tick < s.pending.completeAt) return;
     const p = s.pending;
     s.pending = null;
+    if (p.kind === "drill") return this.finishDrill(p);
+    if (p.kind === "recover") return this.finishRecover(p);
     const action = (ACTIONS[p.code] || []).find((a) => a.id === p.actionId);
     if (action) action.apply(s, p.finding);
     this.log({ kind: "done", text: `Done: ${p.label}` });
+  }
+
+  // -------------------------------------------------------- restore drills
+  drillPlan(req) {
+    return this.rules.drillPlan(planPayload(this.s, req));
+  }
+
+  runDrill(mode = "pitr") {
+    const s = this.s;
+    if (this.busy()) return { ok: false, reason: "Already working on something." };
+    if (!features(s.level).drills) return { ok: false, reason: "Restore drills unlock at level 6." };
+    if (mode === "snapshot" && !features(s.level).snapshotDrills) return { ok: false, reason: "Snapshot drills unlock at level 31." };
+    const req = drillRequest(s, { mode, level: s.level });
+    const plan = this.drillPlan(req);
+    this.log({ kind: "action", text: `$ rdsops restore-drill --instance ${req.source} --mode ${mode} --execute` });
+    const blockers = plan.findings.filter((f) => f.severity === "FAIL");
+    if (blockers.length) {
+      s.drills.last = { tick: s.tick, mode, findings: plan.findings, ran: false };
+      for (const f of blockers) this.log({ kind: "fail", text: `${f.code} FAIL: ${f.title}` });
+      this.log({ kind: "fail", text: "Drill not run: the plan has failures." });
+      return { ok: false, reason: blockers[0].title, plan };
+    }
+    const sim = simulateDrill(s, req, this.rand);
+    s.budget -= sim.cost;
+    s.pending = { kind: "drill", payload: sim.payload, mode, completeAt: s.tick + sim.hours,
+                  label: `Restore drill (${mode}): ${sim.restoreMin} min restore, ${sim.verifyMin} min verify`, plan: plan.findings };
+    this.log({ kind: "scenario", text: `Restoring ${req.source} to ${req.target_id}. Copy bills about $${sim.cost} while it runs.` });
+    return { ok: true, plan };
+  }
+
+  finishDrill(p) {
+    const s = this.s;
+    const findings = this.rules.drillEvaluate(p.payload);
+    const problems = findings.filter((f) => f.severity === "WARN" || f.severity === "FAIL");
+    s.drills.last = { tick: s.tick, mode: p.mode, findings, ran: true };
+    s.drills.history.push({ tick: s.tick, mode: p.mode, clean: !problems.length });
+    for (const f of findings) {
+      this.log({ kind: f.severity === "FAIL" ? "fail" : f.severity === "WARN" ? "warn" : "good", text: `${f.code} ${f.severity}: ${f.title}` });
+    }
+    s.counters.drills = (s.counters.drills || 0) + 1;
+    if (!problems.length) {
+      s.counters.cleanDrills = (s.counters.cleanDrills || 0) + 1;
+      this.award(60, `Restore drill passed (${p.mode})`);
+      if (s.auditDue) {
+        s.auditDue = null;
+        s.counters.auditPassed = (s.counters.auditPassed || 0) + 1;
+        this.award(80, "Auditor accepts the drill report");
+      }
+    } else {
+      this.award(15, "Restore drill run (with findings to fix)");
+    }
+    this.progress();
+  }
+
+  checkAudit() {
+    const s = this.s;
+    if (s.auditDue && s.tick > s.auditDue) {
+      s.auditDue = null;
+      s.budget -= 150;
+      this.log({ kind: "fail", text: "Audit finding: no proof of a working restore. -$150 remediation cost." });
+    }
+  }
+
+  recoverTable(name) {
+    const s = this.s;
+    if (this.busy()) return { ok: false, reason: "Already working on something." };
+    const lost = s.db.lost.find((x) => `${x.table.schema}.${x.table.table}` === name);
+    if (!lost) return { ok: false, reason: "Nothing to recover." };
+    const req = drillRequest(s, { mode: "pitr", restoreTick: lost.tick, level: s.level });
+    req.target_id = `${s.instance.identifier}-recover-${lost.table.table}`.slice(0, 63);
+    req.verify_tables = [];
+    const plan = this.drillPlan(req);
+    this.log({ kind: "action", text: `$ aws rds restore-db-instance-to-point-in-time --source-db-instance-identifier ${req.source} --target-db-instance-identifier ${req.target_id} --restore-time ${req.restore_time}` });
+    const blockers = plan.findings.filter((f) => f.severity === "FAIL");
+    if (blockers.length) {
+      for (const f of blockers) this.log({ kind: "fail", text: `${f.code} FAIL: ${f.title}` });
+      s.db.lost = s.db.lost.filter((x) => x !== lost);
+      s.budget -= 250;
+      s.counters.dataLost = (s.counters.dataLost || 0) + 1;
+      this.log({ kind: "outage", text: `${name} cannot be restored. Rebuilding it from field data costs $250 and the history is gone.` });
+      return { ok: false, reason: blockers[0].title, plan };
+    }
+    const sim = simulateDrill(s, req, this.rand);
+    s.budget -= sim.cost;
+    s.pending = { kind: "recover", name, completeAt: s.tick + sim.hours + 1,
+                  label: `Point-in-time restore, then copy ${name} back` };
+    return { ok: true, plan };
+  }
+
+  finishRecover(p) {
+    const s = this.s;
+    const lost = s.db.lost.find((x) => `${x.table.schema}.${x.table.table}` === p.name);
+    if (!lost) return;
+    s.db.lost = s.db.lost.filter((x) => x !== lost);
+    s.db.tables.push(lost.table);
+    s.counters.recovered = (s.counters.recovered || 0) + 1;
+    this.log({ kind: "good", text: `${p.name} restored from the point-in-time copy (pg_dump -t ${p.name} | psql). Maps are back.` });
+    this.award(70, `Recovered ${p.name}`);
+    this.progress();
   }
 
   manualScan() {
