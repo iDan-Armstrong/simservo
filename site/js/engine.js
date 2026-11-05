@@ -99,7 +99,7 @@ export function monthlyCost(s) {
   // Each extra Portal or Data Store machine is one more EC2 instance (a rough figure).
   const a = s.arcgis || {};
   const extra = Math.max(0, ((a.portal && a.portal.machines.length) || 1) - 1) + Math.max(0, ((a.datastore && a.datastore.machines.length) || 1) - 1);
-  return Math.round((compute + storage + backup + extra * EXTRA_MACHINE_MONTH) * 100) / 100;
+  return Math.round((compute + storage + backup + extra * EXTRA_MACHINE_MONTH + drMonthly(s)) * 100) / 100;
 }
 
 export function maxConnections(s) {
@@ -120,6 +120,7 @@ import { stackSnapshot } from "./campaign.js";
 import { takeoverSnapshot } from "./takeover.js";
 import { fleetSnapshot } from "./fleet.js";
 import { securitySnapshot } from "./secops.js";
+import { drMonthly, resilienceSnapshot } from "./dr.js";
 import { backupSnapshot, datastoreSnapshot, logsSnapshot, newSite, portalSnapshot, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
 
 export { siteUp };
@@ -254,6 +255,8 @@ export function snapshot(s, { production = false } = {}) {
     takeover: takeoverSnapshot(s),
     fleet: fleetSnapshot(s, { facts, production }),
     security: securitySnapshot(s, facts, isoAt),
+    resilience: resilienceSnapshot(s, facts),
+    dr_targets: s.dr && s.dr.started != null ? { rto: s.level >= 31 ? 30 : 60, rpo: 15 } : undefined,
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },

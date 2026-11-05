@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR|FLT|SEC|ESC)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR|FLT|SEC|ESC|RES|DRD)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -210,4 +210,32 @@ def test_every_incident_kind_has_a_real_playbook(catalog):
             assert phases[2] == "Notify" and "CISA" in pb["steps"][2]["title"], i["kind"]
             text = json.dumps(pb)
             assert "us-gov-west-1" in text or "nwsa" in text, i["kind"]
+
+
+def test_dr_through_real_rdsops_resilience(catalog):
+    found = [f for f in evaluate(catalog["dr"]["asFound"]) if f["source"] == "resilience"]
+    region = [f for f in found if f["code"] == "RES002"]
+    assert region and region[0]["severity"] in ("WARN", "FAIL") and "No recovery path" in region[0]["title"]
+    assert any(f["code"] == "RES005" and f["severity"] == "FAIL" for f in found)  # no key in us-west-2 yet
+    # every fix the game offers answers a code the real tool emits
+    codes = {f["code"] for f in found}
+    ready = [f for f in evaluate(catalog["dr"]["ready"]) if f["source"] == "resilience"]
+    codes |= {f["code"] for f in ready}
+    assert {c for c in catalog["actionCodes"] if c.startswith("RES")} - {"RES007"} <= codes
+    assert not [f for f in ready if RANK[f["severity"]] >= 2], ready
+    paths = [f for f in ready if f["code"] == "RES002"][0]["evidence"]["paths"]
+    assert paths and paths[0]["rto_minutes"] == 41  # the measured drill, not a guess
+
+
+def test_failover_drills_through_real_rdsops(catalog):
+    blocked = json.loads(simservo_bridge.failover_plan(json.dumps(catalog["dr"]["singleAz"])))
+    assert blocked["findings"][0]["severity"] == "FAIL" and not blocked["steps"]
+    for d in catalog["dr"]["drills"]:
+        plan = json.loads(simservo_bridge.failover_plan(json.dumps(d["plan"])))
+        assert plan["steps"], d["kind"]
+        if d["kind"] == "region":
+            assert "us-west-2" in " ".join(plan["steps"]) and "promote-read-replica" not in " ".join(plan["steps"])
+        scored = json.loads(simservo_bridge.failover_evaluate(json.dumps(d["evaluate"])))
+        assert {f["code"] for f in scored} >= {"DRD001", "DRD002", "DRD003"}, d["kind"]
+        assert [f for f in scored if f["code"] == "DRD001"][0]["severity"] == "OK", scored
 

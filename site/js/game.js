@@ -12,6 +12,7 @@ import { STEPS, campaignTick, checkFinale, ensureCampaign, startStep } from "./c
 import * as takeover from "./takeover.js";
 import * as fleet from "./fleet.js";
 import * as secops from "./secops.js";
+import * as dr from "./dr.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -82,6 +83,7 @@ export class Game {
     for (const e of takeover.takeoverTick(s, (x) => this.log(x))) this.emit("takeover", e);
     const failing = this.findings.filter((x) => x.code === "FLT001" && x.severity === "FAIL").length;
     for (const e of fleet.fleetTick(s, (x) => this.log(x), failing)) this.emit("fleet", e);
+    dr.drTick(s, this.rand, (x) => this.log(x));
     for (const e of secops.secopsTick(s, this.rand, (x) => this.log(x), this.rules.incidentPlaybook)) this.openIncident(e);
     this.finishPending();
     this.checkAudit();
@@ -142,6 +144,11 @@ export class Game {
       this.emit("secops", { started: true });
     }
     if (s.secops && s.secops.started != null) { allowed.add("security"); allowed.add("arcgis-security"); }
+    if (dr.startDr(s)) {
+      this.log({ kind: "level", text: "High Availability and DR: rdsops resilience now asks what happens when the zone or the Region goes." });
+      this.emit("dr", { started: true });
+    }
+    if (s.dr && s.dr.started != null) allowed.add("resilience");
     const snap = snapshot(s, { production: features(s.level).production });
     const all = this.evaluate(snap);
     this.findings = all.filter((x) => allowed.has(x.source));
@@ -312,10 +319,89 @@ export class Game {
     const p = s.pending;
     s.pending = null;
     if (p.kind === "drill") return this.finishDrill(p);
+    if (p.kind === "failover") return this.finishFailover(p);
     if (p.kind === "recover") return this.finishRecover(p);
     const action = (ACTIONS[p.code] || []).find((a) => a.id === p.actionId);
     if (action) action.apply(s, p.finding);
     this.log({ kind: "done", text: `Done: ${p.label}` });
+  }
+
+  // -------------------------------------------------------- failover drills
+  drTargets() {
+    return { rto: this.s.level >= 31 ? 30 : 60, rpo: 15 };
+  }
+
+  runFailoverDrill(kind) {
+    const s = this.s;
+    if (!s.dr || s.dr.started == null) return { ok: false, reason: `Failover drills unlock at level ${dr.UNLOCK_LEVEL}.` };
+    if (this.busy()) return { ok: false, reason: "Already working on something." };
+    if (isDown(s)) return { ok: false, reason: "The database is down. Recover first; drill later." };
+    const request = dr.drillRequest(s, kind, this.drTargets());
+    const res = snapshot(s).resilience;
+    const plan = this.rules.failoverPlan({ request, resilience: res, now: isoAt(s.tick) });
+    this.log({ kind: "action", text: `$ rdsops failover-drill --kind ${kind} --instance ${request.instance} --region us-east-1 --dr-region ${request.dr_region}` });
+    const blockers = plan.findings.filter((f) => f.severity === "FAIL" || (f.severity === "WARN" && !plan.steps.length));
+    if (blockers.length) {
+      s.dr.lastDrill = { kind, tick: s.tick, findings: plan.findings, ran: false };
+      for (const f of blockers) this.log({ kind: "fail", text: `${f.code} ${f.severity}: ${f.title}` });
+      return { ok: false, reason: blockers[0].title };
+    }
+    for (const step of plan.steps.slice(2, 4)) this.log({ kind: "action", text: `$ ${step}` });
+    const sim = dr.simulateFailover(s, kind, this.rand);
+    if (kind === "az") {
+      s.instance.multiAzFailovers = (s.instance.multiAzFailovers || 0) + 1;
+      if (sim.outageMinutes > 10) this.log({ kind: "warn", text: `ArcGIS services kept failing for ${Math.round(sim.outageMinutes)} minutes: the database moved, ArcGIS Server's JVM kept the old address.` });
+    }
+    s.pending = { kind: "failover", drillKind: kind, payload: { request, result: sim.result }, completeAt: s.tick + Math.max(1, Math.ceil(sim.minutes / 60)),
+                  label: `${kind === "az" ? "Zone" : "Region"} failover drill` };
+    return { ok: true, plan };
+  }
+
+  finishFailover(p) {
+    const s = this.s;
+    const findings = this.rules.failoverEvaluate(p.payload);
+    dr.recordDrill(s, p.drillKind, findings);
+    for (const f of findings) this.log({ kind: f.severity === "FAIL" ? "fail" : f.severity === "WARN" ? "warn" : "good", text: `${f.code} ${f.severity}: ${f.title}` });
+    const problems = findings.filter((f) => f.severity === "WARN" || f.severity === "FAIL");
+    s.counters[`${p.drillKind}Drills`] = (s.counters[`${p.drillKind}Drills`] || 0) + 1;
+    if (!problems.length) s.counters[`${p.drillKind}DrillsClean`] = (s.counters[`${p.drillKind}DrillsClean`] || 0) + 1;
+    this.award(problems.length ? 30 : 90, `${p.drillKind === "az" ? "Zone" : "Region"} failover drill scored`);
+    this.scan({ manual: false });
+    this.progress();
+  }
+
+  fixDnsTtl() {
+    const s = this.s;
+    if (!s.dr || s.dr.jvmTtl === 60) return { ok: false, reason: "Already 60 seconds." };
+    if (this.busy()) return { ok: false, reason: "Already working on something." };
+    s.dr.jvmTtl = 60;
+    s.counters.dnsTtl = true;
+    this.log({ kind: "action", text: `$ ${dr.TTL_FIX.command}` });
+    return { ok: true };
+  }
+
+  // The Region is gone and a path exists: fail over along it.
+  failOverRegion(i) {
+    const s = this.s;
+    if (s.instance.status !== "region-lost") return { ok: false, reason: "The Region is up." };
+    if (s.dr && s.dr.activeRegion !== "us-east-1") return { ok: false, reason: "Already running in the DR Region." };
+    const p = dr.regionPaths(this.findings)[i];
+    if (!p) return { ok: false, reason: "No such recovery path." };
+    const r = dr.failOver(s, p, this.rand);
+    s.instance.downUntil = Math.min(s.instance.downUntil || Infinity, s.tick + r.hours);
+    const loss = Math.round(r.lossMin * 4);
+    s.budget -= loss;
+    s.counters.regionFailovers = (s.counters.regionFailovers || 0) + 1;
+    if (r.drilled) s.counters.drilledFailovers = (s.counters.drilledFailovers || 0) + 1;
+    this.log({ kind: "action", text: `Failing over to ${s.dr.drRegion} via ${p.name}.` });
+    this.log({ kind: r.drilled ? "good" : "warn", text: r.drilled
+      ? `As drilled: back in about ${r.hours} hour(s). ${Math.round(r.lossMin)} minutes of edits lost ($${loss}).`
+      : `Never drilled: finding the runbook, the key and the ARN costs ${dr.UNDRILLED_PENALTY_HOURS} more hours. Back in about ${r.hours} hour(s); ${Math.round(r.lossMin)} minutes of edits lost ($${loss}).` });
+    this.log({ kind: "action", text: "Repoint the ArcGIS data stores and .sde connection files at the new endpoint, validate, restart services." });
+    this.award(r.drilled ? 200 : 80, "Failed over to the DR Region");
+    this.scan({ manual: false });
+    this.progress();
+    return { ok: true, ...r };
   }
 
   // -------------------------------------------------------- restore drills

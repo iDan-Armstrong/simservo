@@ -85,6 +85,26 @@ const incidents = [...SO.RDSOPS_KINDS, ...SO.EGISOPS_KINDS].flatMap((k) => [fals
   kind: k, federal: fed, request: SO.incidentRequest(sec, k, fed, isoAt),
 })));
 
+// High Availability and DR: as found, and with a DR copy and both drills measured.
+const D = await import("../site/js/dr.js");
+const drg = newGame(16);
+drg.level = 16;
+drg.instance.backupRetention = 7;
+D.startDr(drg);
+const drFound = structuredClone(snapshot(drg));
+const drSet = structuredClone(drg);
+drSet.instance.multiAz = true;
+for (const a of [D.DR_ACTIONS.RES005[0], D.DR_ACTIONS.RES002[1], D.DR_ACTIONS.RES008[0]]) a.apply(drSet);
+drSet.dr.measured = { az: 2.6, region: 41 };
+drSet.dr.jvmTtl = 60;
+const drReady = structuredClone(snapshot(drSet));
+const drills = ["az", "region"].map((kind) => {
+  const sim = D.simulateFailover(drSet, kind, rng(16));
+  const request = D.drillRequest(drSet, kind, { rto: 60, rpo: 15 });
+  return { kind, plan: { request, resilience: drReady.resilience, now: drReady.now }, evaluate: { request, result: sim.result } };
+});
+const singleAz = { request: D.drillRequest(drg, "az", { rto: 60, rpo: 15 }), resilience: drFound.resilience, now: drFound.now };
+
 console.log(JSON.stringify({
   actionCodes: Object.keys(ACTIONS),
   teaches: [...new Set(SCENARIOS.flatMap((x) => x.teaches))],
@@ -94,5 +114,6 @@ console.log(JSON.stringify({
   fleet: fleetSnap,
   takeover: { asFound: withNow(asFound), cleared: withNow(cleared), promoted: withNow(promoted) },
   security: { asFound: secFound, hardened: secHardened },
+  dr: { asFound: drFound, ready: drReady, drills, singleAz },
   incidents,
 }));

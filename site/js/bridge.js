@@ -92,6 +92,12 @@ export async function bootPython({ base = "./", onStage = () => {} } = {}) {
     drillPlan(payload) {
       return JSON.parse(bridge.drill_plan(JSON.stringify(payload)));
     },
+    failoverPlan(payload) {
+      return JSON.parse(bridge.failover_plan(JSON.stringify(payload)));
+    },
+    failoverEvaluate(payload) {
+      return JSON.parse(bridge.failover_evaluate(JSON.stringify(payload)));
+    },
     incidentPlaybook(payload) {
       return JSON.parse(bridge.incident_playbook(JSON.stringify(payload)));
     },

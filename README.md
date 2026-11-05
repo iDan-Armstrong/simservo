@@ -17,7 +17,7 @@ running inside the page through Pyodide.
 
 | Real | Simulated |
 | --- | --- |
-| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill`, `aurora-plan`, `fleet`, `security`, `incident` and egisops `server-health`, `services`, `logs`, `portal-health`, `datastore`, `backup-check`, `stack-compat`, `security`, `incident`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
+| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill`, `aurora-plan`, `fleet`, `security`, `incident`, `resilience`, `failover-drill` and egisops `server-health`, `services`, `logs`, `portal-health`, `datastore`, `backup-check`, `stack-compat`, `security`, `incident`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
 | Finding codes, severities, thresholds and fix text | The numbers: connections, dead rows, WAL, storage, transaction ID age |
 | The commands each action shows (AWS CLI, SQL, console steps) | Time (one tick is one game hour) and money |
 | Tutorial links to AWS, Esri, PostgreSQL and PostGIS docs, checked by CI | Scenarios, quests, XP and achievements |
@@ -38,10 +38,10 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Nine are playable, because their real tools exist: Fundamentals,
+- 100 levels in ten tiers, all playable, each backed by a real tool: Fundamentals,
   Monitoring and Maintenance, Versions and Upgrades, Backup and Restore, ArcGIS Server,
-  Portal and Federation, Data Store, Security Operations, and Fleet Command. High
-  Availability and DR is next.
+  Portal and Federation, Data Store, Security Operations, High Availability and DR, and
+  Fleet Command.
 - ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
   that do not come back after patch night, and licenses that run out. The real
   `egisops server-health` scores it. From level 5, `egisops services` and `logs` watch the
@@ -104,6 +104,17 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   rule, an instance deleted because deletion protection was off, a restore window too
   short, a CA rotation that breaks ArcGIS, a leaked key used in another Region, the
   primary site administrator used to get back in, a KMS key scheduled for deletion.
+- **High Availability and DR** from level 16. The real `rdsops resilience` lists every
+  way back from losing the zone or the Region (Multi-AZ, point-in-time restore,
+  replicated automated backups in us-west-2, a cross-Region replica, snapshot copies),
+  with the data each would lose and the time each takes, against your targets. Time is
+  never guessed: until you drill a path, it says so. Zone and Region drills go through the
+  real `rdsops failover-drill` plan and scoring; a Region drill restores a scratch copy and
+  never promotes the real replica. ArcGIS Server's JVM caches DNS until restart, so the
+  first zone drill shows the services coming back long after the database, and the fix is
+  a 60-second TTL. A Region-wide outage (or Trollzilla) can now be failed over: a drilled
+  path goes as measured, an undrilled one costs hours of finding the runbook on the day,
+  and promoting the replica uses it up.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -137,11 +148,12 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | Test | What it proves |
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; all eight fleet instances run through the real rdsops fleet; the starting security posture fails the real checks for every fix the game offers and the hardened one passes; the playbook fixture matches the real tools; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, a fleet site arrives and a baseline fix through the panel changes what rdsops fleet reports, security findings come from the real tools and a federal incident is played through the console with the real playbook, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; all eight fleet instances run through the real rdsops fleet; the starting security posture fails the real checks for every fix the game offers and the hardened one passes; the playbook fixture matches the real tools; the DR setup as found and as built runs through the real rdsops resilience, and both drill kinds through the real failover-drill; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, a fleet site arrives and a baseline fix through the panel changes what rdsops fleet reports, security findings come from the real tools and a federal incident is played through the console with the real playbook, a Region drill is scored by the real failover-drill and a Region outage is failed over along the drilled path, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tests/campaign.test.mjs` | The expansion end to end: unlock at 12, Esri's order and backup rule enforced, components unavailable while upgrading, chapters, finale |
 | `tests/takeover.test.mjs` | Expansion 2 end to end: waits for the 12.1 Upgrade, GovCloud facts, the version arriving in the Region, AWS's order (no promotion while writing or lagging), the finale |
 | `tests/secops.test.mjs` | Every real playbook (exported to a fixture) runs clean in its own order; evidence destroyed early, recovery before containment, a late CISA report and the review out of order are each caught; the contingencies fire; posture fixes change what the real tools read |
+| `tests/dr.test.mjs` | DR opens at 16; backup replication needs the DR key and costs money; a zone drill needs Multi-AZ and exposes the DNS cache; drills measure the times the real tool uses; a drilled Region failover beats an undrilled one; promotion uses up the replica |
 | `tests/fleet.test.mjs` | The fleet opens after the takeover, six sites arrive on schedule, fixes change the facts, GovCloud ARNs |
 | `tools/check-links.mjs` | Every tutorial link answers |
 

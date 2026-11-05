@@ -78,6 +78,13 @@ export const LINKS = {
   awsSsl: { title: "AWS: Using SSL/TLS to encrypt a connection to a DB instance", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html" },
   nist80061: { title: "NIST SP 800-61 Rev. 3: Incident Response Recommendations (2025)", url: "https://csrc.nist.gov/pubs/sp/800/61/r3/final" },
   cisaFederal: { title: "CISA: Federal Incident Notification Guidelines", url: "https://www.cisa.gov/incident-notification-guidelines" },
+  rdsopsResilience: { title: "rdsops resilience and failover-drill (README)", url: `${RDSOPS}#resilience` },
+  rdsopsDr: { title: "Runbook: zone and Region loss for an RDS geodatabase", url: `${RDSOPS}/blob/main/docs/runbooks/disaster-recovery.md` },
+  rdsopsAdr9: { title: "ADR 0009: recovery times are measured, not guessed", url: `${RDSOPS}/blob/main/docs/adr/0009-recovery-times-are-measured-not-guessed.md` },
+  awsFailover: { title: "AWS: Failing over a Multi-AZ DB instance (and the JVM DNS TTL)", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html" },
+  awsReplicateBackups: { title: "AWS: Replicating automated backups to another Region", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReplicateBackups.html" },
+  awsPgReplicas: { title: "AWS: Working with PostgreSQL read replicas", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.Replication.ReadReplicas.html" },
+  awsCopySnapshot: { title: "AWS API: CopyDBSnapshot (KMS keys in the destination Region)", url: "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CopyDBSnapshot.html" },
   esriMaint: { title: "Esri: Enterprise geodatabase maintenance tasks (PostgreSQL)", url: "https://pro.arcgis.com/en/pro-app/latest/help/data/geodatabases/manage-postgresql/enterprise-geodatabase-maintenance.htm" },
 };
 
@@ -528,6 +535,32 @@ TUTORIALS["incident"] = {
       heading: "The clock is running",
       body: "The game is paused while you work. Each step takes incident minutes, and until you contain it the attacker keeps causing damage. Pick the steps in the order you would run them. Nothing here touches a real system; the commands are the ones the real playbook prints.",
       links: L("rdsopsIncidents", "nist80061"),
+    },
+  ],
+};
+
+TUTORIALS["level-16"] = {
+  title: "High Availability and DR",
+  cards: [
+    {
+      heading: "Two questions",
+      body: "If the zone goes, how long until ArcGIS works again and how much data is lost? Same question for the whole Region. The real rdsops resilience lists every recovery path you have for each, with its data loss from AWS timestamps, and scores them against your targets. Multi-AZ answers the zone question: AWS documents failover as typically 60 to 120 seconds, with no data lost. It does nothing for a Region.",
+      links: L("rdsopsResilience", "awsFailover"),
+    },
+    {
+      heading: "A copy somewhere else",
+      body: "For a Region: replicate automated backups to us-west-2 (the cheapest real option, minutes of data loss), or keep a cross-Region read replica (faster, bills like a second instance, and promoting it cannot be undone). Snapshot copies lose everything since the copy. Encrypted copies need a KMS key in the DR Region first.",
+      links: L("awsReplicateBackups", "awsPgReplicas", "awsCopySnapshot", "rdsopsDr"),
+    },
+    {
+      heading: "Measured, not hoped",
+      body: "Until you drill it, the tool says your recovery time was never measured. A zone drill forces a real failover in a window you announce. A Region drill restores a scratch copy in us-west-2, proves ArcGIS can use it, and deletes it; it never promotes the real replica. Watch the gap between the database coming back and ArcGIS coming back: that is usually DNS caching in ArcGIS Server's JVM.",
+      links: L("rdsopsAdr9"),
+    },
+    {
+      heading: "The bad day",
+      body: "Sometimes a whole Region has a very bad day. With a copy in us-west-2 you can fail over; a path you drilled goes as measured, one you never practised costs hours of finding the runbook, the key and the ARN while everything is down.",
+      links: L("rdsopsDr"),
     },
   ],
 };

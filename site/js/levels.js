@@ -11,7 +11,7 @@ export const TIERS = [
   { tier: 6, name: "Portal and Federation", subject: "Portal for ArcGIS, federation, licenses, search", tool: "egisops portal-health", status: "playable" },
   { tier: 7, name: "Data Store and Geodatabases", subject: "ArcGIS Data Store, standby, backups", tool: "egisops datastore", status: "playable" },
   { tier: 8, name: "Security Operations", subject: "Hardening, attacks and incident response playbooks", tool: "rdsops security, incident; egisops security, incident", status: "playable" },
-  { tier: 9, name: "High Availability and DR", subject: "Multi-AZ, cross-region copies, failover drills", tool: "planned", status: "planned" },
+  { tier: 9, name: "High Availability and DR", subject: "Multi-AZ, cross-Region copies, failover drills, losing a Region", tool: "rdsops resilience, failover-drill", status: "playable" },
   { tier: 10, name: "Fleet Command", subject: "Many sites, one operations center", tool: "rdsops fleet, aurora-plan (Expansion 2)", status: "playable" },
 ];
 
@@ -76,6 +76,7 @@ const UNLOCKS = {
   11: ["Site backups with WebGISDR (egisops backup-check)", "S3 backup storage in the shop"],
   12: ["Expansion: The 12.1 Upgrade", "Stack compatibility (egisops stack-compat) replaces the planning-only compat scan"],
   14: ["Expansion 2: The Takeover (after the 12.1 Upgrade)", "A client in AWS GovCloud (US)", "Aurora migration planning (rdsops aurora-plan)"],
+  16: ["High Availability and DR: rdsops resilience scores zone and Region loss against your RTO and RPO", "Zone and Region failover drills, planned and scored by rdsops failover-drill", "Region-wide outages, and failing over when one hits"],
   15: ["Security Operations: rdsops security and egisops security score your posture", "Attacks, drawn by what you leave open", "Incident response with the real rdsops and egisops playbooks", "Federal clients: the CISA one-hour report"],
   31: ["Snapshot-mode drills", "Tighter recovery target: 30 minutes"],
   41: ["A second ArcGIS Server machine joins the site", "Certificate and license renewals on a schedule"],

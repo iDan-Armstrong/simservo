@@ -200,6 +200,21 @@ const handlers = {
     renderAll(game, handlers);
     writeSave(game.s);
   },
+  drDrill(kind) {
+    const r = game.runFailoverDrill(kind);
+    if (!r.ok) toast("Drill not run", r.reason);
+    drain(); renderAll(game, handlers); writeSave(game.s);
+  },
+  drTtl() {
+    const r = game.fixDnsTtl();
+    if (!r.ok) toast("Not now", r.reason);
+    drain(); renderAll(game, handlers); writeSave(game.s);
+  },
+  drFailover(i) {
+    const r = game.failOverRegion(i);
+    if (r && !r.ok) toast("Not now", r.reason);
+    drain(); renderAll(game, handlers); writeSave(game.s);
+  },
   incidentStep(n) {
     const r = game.incidentStep(n);
     if (!r.ok) toast("Not yet", r.reason);

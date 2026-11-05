@@ -259,6 +259,49 @@ try {
   if (closed.open || closed.c.incidentsClosed !== 1 || closed.c.cisaOnTime !== 1 || closed.c.evidenceKept !== 1) fail("incident did not close cleanly");
   await page.click("#modal-actions .btn");
 
+  // High Availability and DR: the real rdsops resilience and failover-drill, through the panel.
+  const drFound = await page.evaluate(() => {
+    const g = window.simservo;
+    if (g.s.level < 16) { g.s.xp = Math.max(g.s.xp, 17000); g.progress(); }
+    g.s.instance.backupRetention = 7;
+    document.querySelector("#btn-scan").click();
+    document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden"));
+    return g.findings.filter((f) => f.source === "resilience").map((f) => `${f.code} ${f.severity}`);
+  });
+  console.log("resilience:", JSON.stringify(drFound));
+  if (!drFound.some((x) => /^RES002 (WARN|FAIL)/.test(x))) fail("rdsops resilience should flag no Region copy");
+  await page.evaluate(() => {
+    const g = window.simservo;
+    const res = g.findings.find((f) => f.code === "RES005");
+    g.act(res, "dr_key");
+    g.act(g.findings.find((f) => f.code === "RES002"), "backup_replication");
+    for (let i = 0; i < 2; i++) g.tick();
+    g.s.secops && (g.s.secops.nextAt = 1e9);
+    document.querySelector("#btn-scan").click();
+  });
+  if (await page.isVisible("#troll:not(.hidden)")) await page.click("#troll-ok");
+  await page.evaluate(() => document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden")));
+  await page.click("#dr [data-drill='region']");
+  const rdrill = await page.evaluate(() => {
+    const g = window.simservo;
+    for (let i = 0; i < 4 && g.s.pending; i++) g.tick();
+    document.querySelector("#btn-scan").click();
+    return { measured: g.s.dr.measured.region, last: g.s.dr.lastDrill.findings.map((f) => `${f.code} ${f.severity}`) };
+  });
+  console.log("region drill:", JSON.stringify(rdrill));
+  if (!(rdrill.measured > 0) || !rdrill.last.includes("DRD001 OK")) fail("Region drill was not scored by rdsops failover-drill");
+  await page.evaluate(() => {
+    const g = window.simservo;
+    g.s.instance.status = "region-lost"; g.s.instance.downUntil = g.s.tick + 18;
+    document.querySelector("#btn-scan").click();
+    document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden"));
+  });
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/dr.png" });
+  await page.click("#dr [data-drf='0']");
+  const fo = await page.evaluate(() => ({ region: window.simservo.s.dr.activeRegion, drilled: window.simservo.s.counters.drilledFailovers, until: window.simservo.s.instance.downUntil - window.simservo.s.tick }));
+  console.log("failover:", JSON.stringify(fo));
+  if (fo.region !== "us-west-2" || fo.drilled !== 1 || fo.until > 2) fail("drilled Region failover did not go as measured");
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

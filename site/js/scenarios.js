@@ -341,6 +341,19 @@ export const SCENARIOS = [
     start(s) { s.auditDue = s.tick + 48; },
   },
   {
+    id: "region_outage",
+    title: "us-east-1 is having a very bad day",
+    category: "force-majeure",
+    blurb: "A Region-wide event: the control plane and several Availability Zones are impaired. Multi-AZ does not help when the whole Region is down.",
+    teaches: [], // what it teaches (RES002) only exists once DR is open, like Trollzilla's lesson
+    minLevel: 16, weight: 0.3,
+    start(s, log) {
+      s.instance.status = "region-lost";
+      s.instance.downUntil = s.tick + 18;
+      log({ kind: "outage", text: "us-east-1 is impaired. With a copy in another Region you can fail over; without one you wait about 18 hours." });
+    },
+  },
+  {
     id: "trollzilla",
     title: "TROLLZILLA",
     category: "monster",
@@ -351,7 +364,7 @@ export const SCENARIOS = [
       s.instance.status = "region-lost";
       s.instance.downUntil = s.tick + 24;
       s.counters.trollzilla = (s.counters.trollzilla || 0) + 1;
-      log({ kind: "monster", text: "TROLLZILLA is eating the region. Without a copy elsewhere, you wait it out." });
+      log({ kind: "monster", text: "TROLLZILLA is eating the region. Without a copy elsewhere, you wait it out. With one, fail over." });
     },
   },
 ];

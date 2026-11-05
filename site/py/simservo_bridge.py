@@ -18,7 +18,7 @@ from egisops import logs as eglogs
 from egisops import incident as egincident
 from egisops import security as egsecurity
 from egisops import backup, datastore, portal, server, services, stack
-from rdsops import compat, drill, fleet, health, incident, inventory, maintenance, security
+from rdsops import compat, drill, failover, fleet, health, incident, inventory, maintenance, resilience, security
 
 
 def _dt(value):
@@ -232,6 +232,31 @@ def _server_security(d: dict) -> egsecurity.ServerSecurity:
     return egsecurity.ServerSecurity(**{k: v for k, v in d.items() if k in keys and k != "certificate"})
 
 
+def _resilience(d: dict) -> resilience.ResilienceSnapshot:
+    return resilience.ResilienceSnapshot(
+        facts=_instance(d["facts"]),
+        region=d["region"],
+        dr_region=d.get("dr_region"),
+        production=d.get("production", False),
+        latest_restorable=_dt(d.get("latest_restorable")),
+        replicas=[resilience.Replica(r["identifier"], r["region"], r.get("status"), r.get("lag_seconds"))
+                  for r in d.get("replicas", [])],
+        backup_replications=[
+            resilience.BackupReplication(b["region"], b["arn"], b.get("retention_days"),
+                                         _dt(b.get("latest_restorable")), b.get("status"))
+            for b in d.get("backup_replications", [])
+        ],
+        snapshot_copies=[resilience.SnapshotCopy(c["identifier"], c["region"], _dt(c["created"]), c.get("encrypted", True))
+                         for c in d.get("snapshot_copies", [])],
+        dr_kms_key=d.get("dr_kms_key"),
+        dr_engine_available=d.get("dr_engine_available"),
+        failover_events=d.get("failover_events"),
+        measured_restore_minutes=d.get("measured_restore_minutes"),
+        measured_az_minutes=d.get("measured_az_minutes"),
+        measured_region_minutes=d.get("measured_region_minutes"),
+    )
+
+
 def _tag(findings, source):
     out = []
     for f in findings:
@@ -271,6 +296,13 @@ def evaluate(snapshot_json: str) -> str:
     if sec:
         out += _tag(security.evaluate(_security(sec["rds"]), _dt(s["now"])), "security")
         out += _tag(egsecurity.evaluate_server(_server_security(sec["server"]), _dt(s["now"])), "arcgis-security")
+    if s.get("resilience"):
+        t = s.get("dr_targets") or {}
+        out += _tag(
+            resilience.evaluate(_resilience(s["resilience"]), _dt(s["now"]),
+                                resilience.Targets(t.get("rto", 60.0), t.get("rpo", 15.0))),
+            "resilience",
+        )
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")
@@ -352,6 +384,26 @@ def incident_playbook(payload_json: str) -> str:
     for st in out["steps"]:
         st["is_command"] = mod.is_command(st["command"])
     return json.dumps(out, default=str)
+
+
+def failover_plan(payload_json: str) -> str:
+    """Real rdsops failover-drill plan on the game's DR setup."""
+    p = json.loads(payload_json)
+    findings, steps = failover.plan(failover.FailoverRequest(**p["request"]),
+                                    _resilience(p["resilience"]), _dt(p["now"]))
+    return json.dumps({"findings": _tag(findings, "failover-drill"), "steps": steps}, default=str)
+
+
+def failover_evaluate(payload_json: str) -> str:
+    """Real rdsops scoring of a simulated drill record."""
+    p = json.loads(payload_json)
+    r = dict(p["result"])
+    for k in ("started", "writable_at", "apps_ok_at"):
+        if r.get(k):
+            r[k] = r[k].replace("+00:00", "Z")
+    result = failover.result_from_dict(r)
+    return json.dumps(_tag(failover.evaluate(result, failover.FailoverRequest(**p["request"])), "failover-drill"),
+                      default=str)
 
 
 def self_test() -> str:

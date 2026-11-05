@@ -9,6 +9,7 @@ import { TERMS, annotate, lookup } from "./glossary.js";
 import { CHAPTERS, STEPS, available, backupFresh } from "./campaign.js";
 import * as TK from "./takeover.js";
 import { FIXES } from "./fleet.js";
+import { TTL_FIX, regionPaths } from "./dr.js";
 import { CISA_MINUTES, TITLES as INC_TITLES, contained, readyToClose } from "./secops.js";
 
 // Native SVG hover title from the glossary, for the network map.
@@ -255,10 +256,50 @@ function renderFleet(game, handlers) {
   box.querySelectorAll("[data-fm]").forEach((b) => b.addEventListener("click", () => handlers.fleet(b.dataset.fm, b.dataset.fx)));
 }
 
+function renderDr(game, handlers) {
+  const s = game.s;
+  const d = s.dr;
+  const on = Boolean(d && d.started != null);
+  $("dr-h").classList.toggle("hidden", !on);
+  const box = $("dr");
+  box.classList.toggle("hidden", !on);
+  if (!on) return;
+  const res = game.findings.filter((f) => f.source === "resilience");
+  const scen = (code, sc) => res.find((f) => f.code === code && f.evidence && f.evidence.scenario === sc);
+  const row = (label, sc) => {
+    const paths = scen(sc === "zone" ? "RES001" : "RES002", sc);
+    const rpo = scen("RES003", sc), rto = scen("RES004", sc);
+    const worst = [paths, rpo, rto].filter(Boolean).map((f) => f.severity).sort((a, b) => RANK[a] - RANK[b])[0] || "INFO";
+    return `<li class="fleet-row"><div><span class="mini-sev ${worst}">${worst}</span><b>${label}</b></div>
+      ${paths ? `<div class="small dim">${rich(paths.detail || paths.title)}</div>` : ""}
+      ${rpo ? `<div class="small">${rich(rpo.title)}</div>` : ""}${rto ? `<div class="small">${rich(rto.title)}</div>` : ""}</li>`;
+  };
+  const lost = s.instance.status === "region-lost" && d.activeRegion === "us-east-1";
+  const paths = lost ? regionPaths(game.findings) : [];
+  const last = d.lastDrill;
+  const ttlShown = d.jvmTtl !== 60 && last && last.findings.some((f) => f.code === "DRD003" && f.severity === "WARN");
+  box.innerHTML = `${lost ? `<div class="alert">us-east-1 is down. ${paths.length ? "Fail over to " + esc(d.drRegion) + ":" : "No copy in another Region: you wait it out."}</div>
+      ${paths.map((p, i) => `<button class="btn tiny" data-drf="${i}">Fail over via ${esc(p.name)} (data loss ${p.rpo_minutes == null ? "unknown" : Math.round(p.rpo_minutes) + " min"}, ${p.rto_minutes == null ? "never drilled" : "drilled: " + Math.round(p.rto_minutes) + " min"})</button>`).join("")}` : ""}
+    <div class="small dim">Running in ${esc(d.activeRegion)}; DR Region ${esc(d.drRegion)}. Scored by rdsops resilience.</div>
+    <ul class="fleet-list">${row("Zone or instance loss", "zone")}${row("Region loss", "region")}</ul>
+    <div class="row wrap">
+      <button class="btn tiny" data-drill="az" ${game.busy() ? "disabled" : ""} title="rdsops failover-drill --kind az: a forced Multi-AZ failover">Zone drill</button>
+      <button class="btn tiny" data-drill="region" ${game.busy() ? "disabled" : ""} title="rdsops failover-drill --kind region: a scratch restore in the DR Region">Region drill</button>
+      ${ttlShown ? `<button class="btn tiny" id="dr-ttl" title="${esc(TTL_FIX.command)}">${esc(TTL_FIX.label)}</button>` : ""}
+    </div>
+    ${last ? `<div class="small"><b>Last ${last.kind === "az" ? "zone" : "Region"} drill</b>${last.ran === false ? " (not run)" : ""}</div>
+      <ul class="small">${last.findings.map((f) => `<li><span class="mini-sev ${f.severity}">${f.severity}</span>${esc(f.code)} ${rich(f.title)}</li>`).join("")}</ul>` : ""}`;
+  box.querySelectorAll("[data-drill]").forEach((b) => b.addEventListener("click", () => handlers.drDrill(b.dataset.drill)));
+  box.querySelectorAll("[data-drf]").forEach((b) => b.addEventListener("click", () => handlers.drFailover(Number(b.dataset.drf))));
+  const t = box.querySelector("#dr-ttl");
+  if (t) t.addEventListener("click", () => handlers.drTtl());
+}
+
 function renderSide(game, handlers) {
   const s = game.s;
   renderCampaign(game, handlers);
   renderFleet(game, handlers);
+  renderDr(game, handlers);
   $("quests").innerHTML = activeQuests(s).slice(0, 4).map((q) => `<li><b>${esc(q.title)}</b><br><span class="small dim">${rich(q.goal)}</span></li>`).join("")
     || `<li class="dim small">All current quests done. More arrive with levels.</li>`;
 

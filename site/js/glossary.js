@@ -98,7 +98,6 @@ export const TERMS = [
   { term: "publicly accessible", also: ["public endpoint", "public access"], def: "An RDS setting that gives the database an address reachable from the internet. ArcGIS should connect from inside the VPC, so it should be off." },
   { term: "Availability Zone", also: ["AZ"], def: "One of several separate data centers in an AWS region, with its own power and network. An outage in one zone does not take down the others." },
   { term: "Multi-AZ", also: ["single-AZ", "Single-AZ"], def: "An RDS option that keeps a synchronized standby copy in a second Availability Zone and fails over to it automatically, in about a minute." },
-  { term: "failover", def: "Switching to a standby copy when the primary fails, so service continues." },
   { term: "region", def: "A geographic AWS area, such as us-east-1, made up of several Availability Zones. Losing a whole region is rare and needs copies elsewhere." },
   { term: "instance class", also: ["db.t4g.micro", "db.t4g.small", "db.t4g.medium", "db.m7g.large"], def: "The size of an RDS server: CPU and memory. Bigger classes allow more connections and cost more per hour." },
   { term: "KMS", also: ["KMS key"], def: "AWS Key Management Service, which holds the encryption keys used for data at rest." },
@@ -150,6 +149,17 @@ export const TERMS = [
   { term: "CISA", def: "The US Cybersecurity and Infrastructure Security Agency. Federal civilian agencies report incidents to it within one hour of identifying them." },
   { term: "evidence", def: "What shows how an incident happened: snapshots, logs, sessions, the CloudTrail record. Rotating, restoring or rebuilding first can destroy it." },
   { term: "contain", also: ["containment"], def: "Stopping an incident from getting worse: cutting access, closing the exposure. It comes before cleaning up and recovering." },
+  // ---------------------------------------------------------------- high availability and DR
+  { term: "disaster recovery", also: ["DR"], def: "Getting the service back after losing more than one machine: a zone, a Region, or the data itself. Measured by how long it takes (RTO) and how much data is lost (RPO)." },
+  { term: "DR Region", def: "The AWS Region you would recover into if your main Region went down. Copies and keys have to be there before the day you need them." },
+  { term: "failover", also: ["fail over", "failovers"], def: "Switching to a standby or copy when the primary is lost. Multi-AZ does it on its own within the Region; a Region failover is a decision someone makes." },
+  { term: "failover drill", also: ["failover drills"], def: "Practising a failover on purpose, timing it and checking ArcGIS works afterwards, so the real one goes as measured." },
+  { term: "cross-Region backup replication", also: ["replicated backups", "backup replication"], def: "RDS copying automated backups to another Region so you can restore to a point in time there. The cheapest real DR for a database." },
+  { term: "snapshot copy", also: ["snapshot copies"], def: "A snapshot copied to another Region. A restore from it loses everything since the copy was made." },
+  { term: "DNS", def: "The system that turns names like an RDS endpoint into addresses. A failover moves the name to the standby; clients that cached the old address keep failing." },
+  { term: "TTL", also: ["DNS TTL"], def: "Time to live: how long a client may cache a DNS answer. AWS advises 60 seconds or less in Java, which ArcGIS Server runs on." },
+  { term: "JVM", def: "Java virtual machine. ArcGIS Server runs in one, and by default it may cache DNS answers until it restarts." },
+  { term: "KMS key in the DR Region", def: "KMS keys belong to one Region. Encrypted copies in another Region need a key created there." },
   { term: "Esri support matrix", also: ["support matrix", "certified"], def: "Esri's published list of database versions each ArcGIS release supports. Running outside it means Esri support may decline to help." },
 ];
 
@@ -171,6 +181,8 @@ export const CODES = {
   SEC: "Security (rdsops security): TLS, password storage, certificates, exposure, snapshots, keys, secrets and the audit trail of the database.",
   ESC: "ArcGIS security (egisops security): site settings against Esri's serverScan and portalScan checks.",
   INC: "Incident readiness (rdsops incident, egisops incident): what already limits the response before it starts.",
+  RES: "Resilience (rdsops resilience): recovery paths for losing the zone or the Region, their data loss and time, against your targets.",
+  DRD: "Failover drill (rdsops failover-drill): a rehearsed zone or Region failover, scored on time, data lost and ArcGIS coming back.",
   BAK: "Site backups (egisops backup-check): the WebGISDR properties file, the newest backup, and the last run.",
 };
 
