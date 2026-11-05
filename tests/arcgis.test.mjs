@@ -77,3 +77,71 @@ test("logs older than 24 hours leave the window", () => {
   s.tick += 25;
   assert.equal(logsSnapshot(s).entries.length, 0);
 });
+
+import { datastoreSnapshot, portalSnapshot, enterpriseTick } from "../site/js/arcgis.js";
+
+test("portal and data store snapshots use the egisops field names", () => {
+  const s = newGame(21);
+  const p = portalSnapshot(s);
+  for (const k of ["base_url", "health_status", "health_ok", "version", "licensed", "machines", "entitlements", "members", "servers", "validation_status", "validations", "indexes", "index_sync", "errors"]) assert.ok(k in p, k);
+  assert.equal(p.validations[0].status, "success");
+  const d = datastoreSnapshot(s).stores[0];
+  for (const k of ["path", "kind", "name", "overall", "registered", "server_connection", "machines", "unavailable", "last_backup", "backup_reported", "release", "cluster_status", "unassigned_shards"]) assert.ok(k in d, k);
+  assert.ok(d.path.startsWith("/enterpriseDatabases/AGSDataStore_"));
+});
+
+test("a stopped data store fails federation validation and logs hosted layer errors", () => {
+  const s = newGame(22);
+  SCENARIOS.find((x) => x.id === "datastore_down").start(s);
+  assert.equal(portalSnapshot(s).validations[0].status, "failure");
+  assert.equal(datastoreSnapshot(s).stores[0].overall, "Unhealthy");
+  enterpriseTick(s);
+  assert.ok(s.arcgis.logs.some((e) => e.source === "Hosted/Inspections.FeatureServer"));
+  ACTIONS.DST002[0].apply(s);
+  assert.equal(portalSnapshot(s).validations[0].status, "success");
+});
+
+test("with a standby, the data store fails over and federation stays green", () => {
+  const s = newGame(23);
+  ACTIONS.DST003[0].apply(s);
+  SCENARIOS.find((x) => x.id === "datastore_down").start(s);
+  const d = datastoreSnapshot(s).stores[0];
+  assert.equal(d.overall, "Healthy");
+  assert.deepEqual(d.machines.map((m) => [m.name, m.role, m.status]), [["DATASTORE1.EXAMPLE.COM", "STANDBY", "Stopped"], ["DATASTORE2.EXAMPLE.COM", "PRIMARY", "Started"]]);
+  assert.equal(portalSnapshot(s).validations[0].status, "success");
+});
+
+test("data store backups run on schedule and stop when the share is full", () => {
+  const s = newGame(24);
+  const d = s.arcgis.datastore;
+  s.tick = d.lastBackupTick + d.backupEveryHours;
+  enterpriseTick(s);
+  assert.equal(d.lastBackupTick, s.tick);
+  SCENARIOS.find((x) => x.id === "backup_share_full").start(s);
+  const stale = d.lastBackupTick;
+  s.tick += 200;
+  enterpriseTick(s);
+  assert.equal(d.lastBackupTick, stale);
+});
+
+test("extra portal and data store machines show on the AWS bill", async () => {
+  const { monthlyCost, EXTRA_MACHINE_MONTH } = await import("../site/js/engine.js");
+  const s = newGame(25);
+  const before = monthlyCost(s);
+  ACTIONS.PTL003[1].apply(s);
+  ACTIONS.DST003[0].apply(s);
+  assert.equal(Math.round(monthlyCost(s) - before), 2 * EXTRA_MACHINE_MONTH);
+});
+
+test("portal-health and datastore are gated to levels 9 and 10", () => {
+  const g = new Game({ seed: 26, evaluate: () => [
+    { code: "PTL003", severity: "INFO", title: "single", detail: "", evidence: {}, source: "portal-health" },
+    { code: "DST003", severity: "INFO", title: "no standby", detail: "", evidence: {}, source: "datastore" },
+  ] });
+  g.s.level = 8; g.scan({ manual: false });
+  assert.equal(g.findings.length, 0);
+  g.s.level = 9; g.scan({ manual: false });
+  assert.deepEqual(g.findings.map((f) => f.code), ["PTL003"]);
+  g.s.level = 10; g.scan({ manual: false });
+  assert.deepEqual(g.findings.map((f) => f.code), ["PTL003", "DST003"]);
+});

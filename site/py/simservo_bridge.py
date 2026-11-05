@@ -15,7 +15,7 @@ from datetime import datetime
 import egisops
 import rdsops
 from egisops import logs as eglogs
-from egisops import server, services
+from egisops import datastore, portal, server, services
 from rdsops import compat, drill, health, inventory, maintenance
 
 
@@ -97,6 +97,45 @@ def _services(d: dict) -> services.ServicesSnapshot:
     )
 
 
+def _portal(d: dict) -> portal.PortalSnapshot:
+    return portal.PortalSnapshot(
+        base_url=d["base_url"],
+        health_status=d.get("health_status"),
+        health_ok=d.get("health_ok"),
+        version=d.get("version"),
+        licensed=d.get("licensed"),
+        site_error=d.get("site_error"),
+        machines=[portal.PortalMachine(m["name"], m.get("role"), m.get("ready"), m.get("reason", ""))
+                  for m in d.get("machines", [])],
+        entitlements=[portal.Entitlement(e["kind"], e["id"], _dt(e.get("expires")),
+                                         e.get("current"), e.get("maximum"))
+                      for e in d.get("entitlements", [])],
+        members=tuple(d["members"]) if d.get("members") else None,
+        certificate=None,
+        servers=None if d.get("servers") is None else [
+            portal.FederatedServer(x["id"], x["name"], x["admin_url"], x["role"], x.get("function", ""))
+            for x in d["servers"]],
+        validation_status=d.get("validation_status"),
+        validations=[portal.ServerValidation(v["server_id"], v["status"], tuple(v.get("messages", [])),
+                                             v.get("admin_url")) for v in d.get("validations", [])],
+        indexes=None if d.get("indexes") is None else [
+            portal.IndexCount(i["name"], i["database"], i["index"]) for i in d["indexes"]],
+        index_sync=d.get("index_sync"),
+        errors=d.get("errors", []),
+    )
+
+
+def _datastore(d: dict) -> datastore.DataStoreSnapshot:
+    stores = []
+    for x in d.get("stores", []):
+        x = dict(x)
+        x["machines"] = tuple(datastore.DsMachine(**m) for m in x.get("machines", []))
+        x["unavailable"] = tuple(x.get("unavailable", []))
+        x["last_backup"] = _dt(x.get("last_backup"))
+        stores.append(datastore.DataStoreHealth(**x))
+    return datastore.DataStoreSnapshot(d["base_url"], stores, d.get("errors", []))
+
+
 def _logs(d: dict) -> eglogs.LogSnapshot:
     return eglogs.LogSnapshot(
         hours=d.get("hours", 24),
@@ -131,6 +170,10 @@ def evaluate(snapshot_json: str) -> str:
         out += _tag(services.evaluate(_services(s["services"])), "services")
     if s.get("logs"):
         out += _tag(eglogs.evaluate(_logs(s["logs"])), "logs")
+    if s.get("portal"):
+        out += _tag(portal.evaluate(_portal(s["portal"]), _dt(s["now"])), "portal-health")
+    if s.get("datastore"):
+        out += _tag(datastore.evaluate(_datastore(s["datastore"]), _dt(s["now"])), "datastore")
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")

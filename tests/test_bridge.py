@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -51,8 +51,13 @@ def test_fresh_game_findings_come_from_rdsops(catalog):
     by_code = {f["code"]: f for f in findings}
     assert by_code["INV002"]["severity"] == "FAIL"  # the game starts with a public instance
     assert {f["source"] for f in findings} == {
-        "inventory", "server-health", "services", "logs", "health", "maintenance", "compat"}
+        "inventory", "server-health", "services", "logs", "portal-health", "datastore",
+        "health", "maintenance", "compat"}
     assert by_code["SRV006"]["severity"] == "WARN"  # fresh installs ship a self-signed certificate
+    # one portal machine and one data store machine: worth knowing, not broken
+    assert by_code["PTL003"]["severity"] == "INFO" and "PTL007" not in by_code
+    assert {f["code"] for f in findings if f["source"] == "datastore" and f["severity"] == "INFO"} == {"DST003"}
+    assert by_code["PTL008"]["severity"] == "OK"
     assert all(set(f) >= {"code", "severity", "title", "detail", "evidence"} for f in findings)
 
 
@@ -95,3 +100,19 @@ def test_dropped_table_without_backups_cannot_be_restored(catalog):
     plan = json.loads(simservo_bridge.drill_plan(json.dumps(sc["drillPlan"])))
     assert {"code": "DRL001", "severity": "FAIL"}.items() <= next(
         f for f in plan["findings"] if f["code"] == "DRL001").items()
+
+
+def test_data_store_failover_keeps_hosted_layers_up(catalog):
+    sc = next(x for x in catalog["scenarios"] if x["id"] == "datastore_down")
+    snap = sc["snapshot"]
+    findings = evaluate(snap)
+    sev = {(f["code"], f["severity"]) for f in findings}
+    assert ("DST002", "FAIL") in sev and ("PTL008", "FAIL") in sev and ("DST001", "FAIL") in sev
+    # the same outage with a standby: the standby is primary, only a WARN remains
+    d = snap["datastore"]["stores"][0]
+    d["overall"] = "Healthy"
+    d["machines"] = [dict(d["machines"][0], role="STANDBY"),
+                     {"name": "DATASTORE2.EXAMPLE.COM", "role": "PRIMARY", "reachable": True,
+                      "status": "Started", "health": "Healthy", "accepting": True}]
+    ds = [f for f in evaluate(snap) if f["source"] == "datastore"]
+    assert max(RANK[f["severity"]] for f in ds) == RANK["WARN"]

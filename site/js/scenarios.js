@@ -5,6 +5,7 @@
 // weight: relative chance per roll. minLevel: first level it can appear.
 
 import { GIB, MIB, addSession } from "./engine.js";
+import { stopDataStorePrimary } from "./arcgis.js";
 
 export const SCENARIOS = [
   {
@@ -194,6 +195,70 @@ export const SCENARIOS = [
     minLevel: 4, weight: 2,
     when: (s) => s.arcgis && s.arcgis.licenses.every((l) => l.expiresTick - s.tick > 30 * 24),
     start(s) { s.arcgis.licenses[0].expiresTick = s.tick + 12 * 24; },
+  },
+  {
+    id: "portal_hang",
+    title: "The portal stopped answering",
+    category: "accident",
+    blurb: "After last night's patching the Portal for ArcGIS service is running but not answering. Nobody can sign in, and the web maps will not open.",
+    teaches: ["PTL001", "PTL003"],
+    minLevel: 9, weight: 3,
+    when: (s) => s.arcgis.portal.machines.every((m) => m.ready),
+    start(s) {
+      // In a pair, the standby carries the site; only one machine hangs.
+      const p = s.arcgis.portal;
+      p.machines[0].ready = false;
+    },
+  },
+  {
+    id: "index_drift",
+    title: "Search comes up empty",
+    category: "accident",
+    blurb: "A content migration loaded 2,000 items overnight and the search index did not keep up. Field crews cannot find the new layers.",
+    teaches: ["PTL009"],
+    minLevel: 9, weight: 2,
+    when: (s) => s.arcgis.portal.indexLag === 0,
+    start(s) { const p = s.arcgis.portal; p.items += 2000; p.indexLag = 2000; },
+  },
+  {
+    id: "field_season",
+    title: "Field season hiring",
+    category: "growth",
+    blurb: "Public Works hired a summer crew and wants them in Field Maps by Monday. Every Field Worker license is now assigned.",
+    teaches: ["PTL005"],
+    minLevel: 9, weight: 2,
+    when: (s) => s.arcgis.portal.userTypes.some((u) => u.id === "fieldWorkerUT" && u.current < u.maximum),
+    start(s) { const u = s.arcgis.portal.userTypes.find((x) => x.id === "fieldWorkerUT"); u.current = u.maximum; },
+  },
+  {
+    id: "portal_license_reminder",
+    title: "The portal license is not on the calendar",
+    category: "accident",
+    blurb: "The ArcGIS Server renewal was on the calendar. The portal's user type licenses were not, and they run out in two weeks.",
+    teaches: ["PTL004"],
+    minLevel: 9, weight: 2,
+    when: (s) => s.arcgis.portal.userTypes.every((u) => u.expiresTick - s.tick > 30 * 24),
+    start(s) { s.arcgis.portal.userTypes[0].expiresTick = s.tick + 14 * 24; },
+  },
+  {
+    id: "datastore_down",
+    title: "Hosted layers went dark",
+    category: "accident",
+    blurb: "The ArcGIS Data Store service did not come back after a reboot. Every hosted feature layer, the inspections app included, is failing.",
+    teaches: ["DST002", "PTL008"],
+    minLevel: 10, weight: 3,
+    when: (s) => s.arcgis.datastore.machines.every((m) => m.up),
+    start(s) { stopDataStorePrimary(s); },
+  },
+  {
+    id: "backup_share_full",
+    title: "The backup share filled up",
+    category: "accident",
+    blurb: "The share ArcGIS Data Store writes its backups to has been full for over a week. Nothing has been backed up since.",
+    teaches: ["DST005"],
+    minLevel: 10, weight: 2,
+    when: (s) => !s.arcgis.datastore.backupLocationFull,
+    start(s) { const d = s.arcgis.datastore; d.backupLocationFull = true; d.lastBackupTick = s.tick - 9 * 24; },
   },
   {
     id: "dropped_table",

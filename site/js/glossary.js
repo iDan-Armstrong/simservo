@@ -14,6 +14,11 @@ export const TERMS = [
   { term: "ArcGIS Pro", def: "Esri's desktop GIS application. Editors and analysts use it to work with the geodatabase and publish services." },
   { term: "Portal", also: ["Portal for ArcGIS"], def: "The website part of ArcGIS Enterprise where people sign in, find content and share maps. It sits in front of one or more ArcGIS Server sites." },
   { term: "web adaptor", def: "A small web application on IIS or Tomcat that receives traffic on the usual web port (443) and passes it to ArcGIS Server or Portal." },
+  { term: "hosting server", def: "The federated ArcGIS Server that Portal uses for hosted layers. It has ArcGIS Data Store registered with it, and publishing hosted layers goes through it." },
+  { term: "hosted feature layer", also: ["hosted feature layers", "hosted layer", "hosted layers"], def: "A feature layer created in Portal whose data lives in ArcGIS Data Store, not in a geodatabase you manage. If the data store is down, these layers fail." },
+  { term: "user type", also: ["user types", "user type license", "user type licenses"], def: "The license each Portal member holds, such as Creator, Field Worker or Viewer. Each type has a fixed count; when every one is assigned, no new member can get it." },
+  { term: "search index", def: "Portal's index of users, groups and items. Searches read the index, so content that is stored but not indexed cannot be found until the index catches up or is rebuilt." },
+  { term: "standby", also: ["standby machine"], def: "A second machine or copy kept in step with the primary and ready to take over if it fails. RDS Multi-AZ, a two-machine portal and a Data Store pair all work this way." },
   { term: "federation", also: ["federated"], def: "Linking an ArcGIS Server site to Portal so Portal handles sign-in and sharing for that server's services." },
   { term: "Data Store", also: ["ArcGIS Data Store"], def: "Esri-managed storage that holds data for hosted layers created in Portal, separate from your own geodatabases." },
   { term: "enterprise geodatabase", def: "An Esri data model stored inside a database such as PostgreSQL. It adds versioning, domains, relationship classes and more on top of plain tables." },
@@ -75,7 +80,7 @@ export const TERMS = [
   { term: "security group", def: "An AWS firewall attached to a server or database that lists which sources may connect on which ports." },
   { term: "publicly accessible", also: ["public endpoint", "public access"], def: "An RDS setting that gives the database an address reachable from the internet. ArcGIS should connect from inside the VPC, so it should be off." },
   { term: "Availability Zone", also: ["AZ"], def: "One of several separate data centers in an AWS region, with its own power and network. An outage in one zone does not take down the others." },
-  { term: "Multi-AZ", also: ["standby", "single-AZ", "Single-AZ"], def: "An RDS option that keeps a synchronized standby copy in a second Availability Zone and fails over to it automatically, in about a minute." },
+  { term: "Multi-AZ", also: ["single-AZ", "Single-AZ"], def: "An RDS option that keeps a synchronized standby copy in a second Availability Zone and fails over to it automatically, in about a minute." },
   { term: "failover", def: "Switching to a standby copy when the primary fails, so service continues." },
   { term: "region", def: "A geographic AWS area, such as us-east-1, made up of several Availability Zones. Losing a whole region is rare and needs copies elsewhere." },
   { term: "instance class", also: ["db.t4g.micro", "db.t4g.small", "db.t4g.medium", "db.m7g.large"], def: "The size of an RDS server: CPU and memory. Bigger classes allow more connections and cost more per hour." },
@@ -125,6 +130,8 @@ export const CODES = {
   SRV: "Server health (egisops server-health): ArcGIS Server site, machines, license, certificate.",
   SVC: "Services (egisops services): ArcGIS Server services and their instance pools.",
   LOG: "Logs (egisops logs): SEVERE ArcGIS Server log entries grouped by source and code.",
+  PTL: "Portal health (egisops portal-health): portal machines, licenses, federation and the search index.",
+  DST: "Data Store (egisops datastore): ArcGIS Data Store validation, machines, standby and backups.",
 };
 
 export const SEVERITY = {

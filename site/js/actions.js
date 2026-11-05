@@ -2,7 +2,8 @@
 // the real command or console step it stands for. `hours` is game time the operator is
 // busy; `cost` is one-time dollars; recurring cost shows up through monthlyCost().
 
-import { GIB, INSTANCE_CLASSES } from "./engine.js";
+import { EXTRA_MACHINE_MONTH, GIB, INSTANCE_CLASSES } from "./engine.js";
+import { addDataStoreStandby, addPortalMachine, dsPrimaryUp } from "./arcgis.js";
 
 const ev = (f) => f.evidence || {};
 const findTable = (s, name) => s.db.tables.find((t) => `${t.schema}.${t.table}` === name);
@@ -299,8 +300,104 @@ Object.assign(ACTIONS, {
   ],
 });
 
+// ------------------------------------------------- Portal for ArcGIS (portal-health)
+const portalOf = (s) => site(s).portal;
+const dataStore = (s) => site(s).datastore;
+const PORTAL = "https://gis.example.com/portal/portaladmin";
+
+const restartPortal = {
+  id: "restart_portal", label: "Restart Portal for ArcGIS on the machine", hours: 1, cost: 0,
+  available: (s) => portalOf(s).machines.some((m) => !m.ready),
+  command: () => "Windows: Restart-Service 'Portal for ArcGIS'   Linux: <install>/stopportal.sh && <install>/startportal.sh",
+  apply(s) { for (const m of portalOf(s).machines) m.ready = true; s.counters.portalRestarts = (s.counters.portalRestarts || 0) + 1; },
+};
+
+const startDataStore = {
+  id: "start_datastore", label: "Start the ArcGIS Data Store service", hours: 1, cost: 0,
+  available: (s) => dataStore(s).machines.some((m) => !m.up),
+  command: () => "Windows: Start-Service 'ArcGIS Data Store'   Linux: <install>/startdatastore.sh",
+  apply(s) { for (const m of dataStore(s).machines) m.up = true; s.counters.dataStoreStarts = (s.counters.dataStoreStarts || 0) + 1; },
+};
+
+Object.assign(ACTIONS, {
+  PTL001: [restartPortal],
+  PTL003: [
+    restartPortal,
+    {
+      id: "add_portal_machine", label: `Add a second portal machine (about $${EXTRA_MACHINE_MONTH}/mo)`, hours: 3, cost: 300,
+      available: (s) => portalOf(s).machines.length < 2,
+      command: () => "Install Portal for ArcGIS on PORTAL2, then join it to the site: POST https://portal2.example.com:7443/arcgis/portaladmin/joinSite",
+      apply(s) { addPortalMachine(s); },
+    },
+  ],
+  PTL004: [
+    {
+      id: "import_portal_license", label: "Import the renewed portal license", hours: 1, cost: 0,
+      command: () => `My Esri > download the portal license (.json), then POST ${PORTAL}/license/importLicense`,
+      apply(s) {
+        for (const u of portalOf(s).userTypes) u.expiresTick = Math.max(u.expiresTick, s.tick + 365 * ONE_DAY);
+        s.counters.licenseRenewals = (s.counters.licenseRenewals || 0) + 1;
+      },
+    },
+  ],
+  PTL005: [
+    {
+      id: "remove_inactive", label: "Remove members who have not signed in for 90 days", hours: 2, cost: 0,
+      command: () => "Organization > Members > sort by last login, then remove or downgrade inactive accounts",
+      apply(s, f) {
+        const id = ev(f).userType;
+        for (const u of portalOf(s).userTypes) if (!id || u.id === id) u.current = Math.max(0, u.current - Math.ceil(u.maximum * 0.15));
+        s.counters.membersCleaned = (s.counters.membersCleaned || 0) + 1;
+      },
+    },
+    {
+      id: "buy_user_types", label: "Buy 10 more licenses of that user type", hours: 0, cost: 400,
+      available: (s, f) => Boolean(f && ev(f).userType),
+      command: (f) => `Order 10 ${ev(f).userType} licenses from Esri, then import the updated license file`,
+      apply(s, f) { const u = portalOf(s).userTypes.find((x) => x.id === ev(f).userType); if (u) u.maximum += 10; },
+    },
+  ],
+  PTL008: [
+    {
+      id: "fix_hosting_server", label: "Fix the hosting server, then validate federation again", hours: 1, cost: 0,
+      command: () => `Start what the messages name (ArcGIS Server, ArcGIS Data Store), then GET ${PORTAL}/federation/servers/validate`,
+      apply(s) {
+        const a = site(s);
+        if (a.licensed) for (const m of a.machines) { m.realtime = "STARTED"; m.configured = "STARTED"; }
+        for (const m of dataStore(s).machines) m.up = true;
+      },
+    },
+  ],
+  PTL009: [
+    {
+      id: "reindex", label: "Reindex the portal", hours: 2, cost: 0,
+      command: () => `POST ${PORTAL}/system/indexer/reindex  (mode FULL_MODE)`,
+      apply(s) { portalOf(s).indexLag = 0; s.counters.reindexed = (s.counters.reindexed || 0) + 1; },
+    },
+  ],
+  // ------------------------------------------------ ArcGIS Data Store (datastore)
+  DST001: [startDataStore],
+  DST002: [startDataStore],
+  DST003: [
+    {
+      id: "add_ds_standby", label: `Add a standby Data Store machine (about $${EXTRA_MACHINE_MONTH}/mo)`, hours: 3, cost: 300,
+      available: (s) => dataStore(s).machines.length < 2,
+      command: () => "Install ArcGIS Data Store on DATASTORE2 and run configuredatastore against the same hosting server; it joins as the standby",
+      apply(s) { addDataStoreStandby(s); },
+    },
+  ],
+  DST005: [
+    {
+      id: "backup_now", label: "Free space at the backup location and back up now", hours: 1, cost: 0,
+      available: (s) => dsPrimaryUp(s),
+      command: () => "Clear old files from the backup share, then <install>/tools/backupdatastore (describedatastore shows the location and schedule)",
+      apply(s) { const d = dataStore(s); d.backupLocationFull = false; d.lastBackupTick = s.tick; s.counters.dsBackups = (s.counters.dsBackups || 0) + 1; },
+    },
+  ],
+});
+
 export function actionsFor(finding, s) {
-  return (ACTIONS[finding.code] || []).filter((a) => !a.available || a.available(s));
+  return (ACTIONS[finding.code] || []).filter((a) => !a.available || a.available(s, finding));
 }
 
 // Upgrades offered in the shop regardless of current findings.
@@ -311,6 +408,8 @@ export const UPGRADES = [
   { id: "shop_pi", label: "Performance Insights", code: "INV007", minLevel: 3, has: (s) => s.instance.perfInsights },
   { id: "shop_iam", label: "IAM database auth", code: "INV005", minLevel: 4, has: (s) => s.instance.iamAuth },
   { id: "shop_autoscale", label: "Storage autoscaling", code: "HLT010", action: "autoscale", minLevel: 4, has: (s) => Boolean(s.instance.maxAllocatedGb) },
+  { id: "shop_portal_ha", label: "Second portal machine", code: "PTL003", action: "add_portal_machine", minLevel: 9, has: (s) => s.arcgis.portal.machines.length > 1 },
+  { id: "shop_ds_standby", label: "Data Store standby machine", code: "DST003", action: "add_ds_standby", minLevel: 10, has: (s) => s.arcgis.datastore.machines.length > 1 },
   { id: "shop_scale", label: "Bigger instance class", code: "HLT001", action: "scale_up", minLevel: 5, has: (s) => s.instance.cls === "db.m7g.large" },
 ];
 

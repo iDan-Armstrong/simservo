@@ -14,6 +14,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Escaped text with glossary terms marked for hover help. Never use for commands.
 const rich = (t) => annotate(esc(t));
+const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore"]);
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
 
@@ -65,6 +66,25 @@ function renderMap(game) {
        <text x="350" y="290" fill="var(--dim)" font-size="10" text-anchor="middle">us-east-1b</text>
        <line x1="300" y1="240" x2="330" y2="250" stroke="var(--cyan)" stroke-dasharray="3 3"/></g>`
     : "";
+  const feat = features(s.level);
+  const portal = ags.portal, ds = ags.datastore;
+  const portalUp = portal ? portal.machines.filter((m) => m.ready).length : 0;
+  const dsUp = ds ? ds.machines.filter((m) => m.up).length : 0;
+  const dsPrimary = ds && ds.machines.some((m) => m.role === "PRIMARY" && m.up);
+  const pColor = !portalUp ? "var(--fail)" : portalUp < portal.machines.length || portal.indexLag ? "var(--warn)" : "var(--cyan)";
+  const dColor = !dsPrimary ? "var(--fail)" : dsUp < ds.machines.length || ds.backupLocationFull ? "var(--warn)" : "var(--cyan)";
+  const portalNode = feat.portal && portal
+    ? `<g class="${portalUp ? "" : "pulse"}">${svgTitle("Portal", "Federated with ArcGIS Server, which is its hosting server.")}<rect x="18" y="132" width="86" height="46" rx="8" fill="#120a2a" stroke="${pColor}" stroke-width="${portalUp ? 1 : 2}"/>
+       <text x="61" y="151" fill="${pColor}" font-size="11" text-anchor="middle">Portal</text>
+       <text x="61" y="167" fill="var(--dim)" font-size="10" text-anchor="middle">${portalUp && portal.indexLag ? "index behind" : `${portalUp}/${portal.machines.length} ready`}</text></g>
+       <line x1="104" y1="146" x2="228" y2="108" stroke="var(--dim)" stroke-dasharray="3 3"/>`
+    : "";
+  const dsNode = feat.datastore && ds
+    ? `<g class="${dsPrimary ? "" : "pulse"}">${svgTitle("Data Store", "The hosting server's managed relational data store, where hosted feature layers live.")}<rect x="312" y="132" width="96" height="46" rx="8" fill="#120a2a" stroke="${dColor}" stroke-width="${dsPrimary ? 1 : 2}"/>
+       <text x="360" y="151" fill="${dColor}" font-size="11" text-anchor="middle">Data Store</text>
+       <text x="360" y="167" fill="var(--dim)" font-size="10" text-anchor="middle">${dsPrimary && ds.backupLocationFull ? "backups stopped" : `${dsUp}/${ds.machines.length} up`}</text></g>
+       <line x1="345" y1="124" x2="352" y2="130" stroke="var(--dim)" marker-end="url(#arr)"/>`
+    : "";
   const slots = s.db.slots.map((x, i) =>
     `<g>${svgTitle("replication slot")}<line x1="290" y1="${215 + i * 10}" x2="400" y2="${190 + i * 10}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="2 4"/>
      <text x="402" y="${192 + i * 10}" fill="var(--warn)" font-size="9" text-anchor="end">${esc(x.name)}</text></g>`).join("");
@@ -88,7 +108,7 @@ function renderMap(game) {
        <text x="200" y="211" fill="var(--ink)" font-size="10" text-anchor="middle">PostgreSQL ${esc(inst.engineVersion)} / PostGIS ${esc(inst.postgis)}</text>
        <text x="200" y="226" fill="var(--dim)" font-size="10" text-anchor="middle">${esc(inst.cls)} ${inst.multiAz ? "Multi-AZ" : "single-AZ"}</text>
        <text x="200" y="240" fill="${color}" font-size="10" text-anchor="middle">${esc(inst.status)}</text></g>
-    ${standby}${slots}
+    ${standby}${slots}${portalNode}${dsNode}
     <text x="22" y="310" fill="var(--dim)" font-size="10">backups ${inst.backupRetention}d  ${inst.deletionProtection ? "delete-protected" : "deletable"}  ${inst.iamAuth ? "IAM auth" : "password auth"}</text>`;
 
   const used = Math.max(0, inst.allocatedGb * GIB - freeBytes(s));
@@ -107,6 +127,8 @@ function renderMap(game) {
   $("status-line").textContent = down
     ? `Instance ${inst.status}. Health and maintenance scans cannot connect.`
     : !agsUp ? "ArcGIS Server is down: no maps are being served."
+    : feat.datastore && !dsPrimary ? "ArcGIS Data Store is down: hosted feature layers are failing."
+    : feat.portal && !portalUp ? "Portal is down: nobody can sign in or open web maps."
     : act.length ? `Ongoing: ${act.join(", ")}` : "All quiet.";
 }
 
@@ -131,7 +153,7 @@ function renderFindings(game, handlers) {
       <div class="top"><span class="sev ${f.severity}" data-sev="${f.severity}">${f.severity}</span><span class="code" data-code="${esc(f.code)}">${esc(f.code)}</span><span>${rich(f.title)}</span></div>
       <div class="detail">
         ${f.detail ? `<div>${rich(f.detail).replace(/\n/g, "<br>")}</div>` : ""}
-        <div class="small dim">source: rdsops ${esc(f.source)}</div>
+        <div class="small dim">source: ${EGISOPS_SOURCES.has(f.source) ? "egisops" : "rdsops"} ${esc(f.source)}</div>
         ${f.severity !== "OK" && acts.length ? `<div class="act">${acts.map((a, j) => `
           <button class="btn" data-f="${i}" data-a="${a.id}" ${game.busy() ? "disabled" : ""}>${rich(a.label)}${a.hours ? ` <span class="dim">(${a.hours}h)</span>` : ""}</button>
           <code class="cmd">${esc(a.command(f, s))}</code>`).join("")}</div>` : ""}

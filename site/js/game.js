@@ -7,7 +7,7 @@ import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
-import { addMachine, ensureSite, siteTick } from "./arcgis.js";
+import { addMachine, enterpriseTick, ensureSite, siteTick } from "./arcgis.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -16,13 +16,13 @@ export function incidentKey(f) {
   const e = f.evidence || {};
   if (f.code === "HLT006") return `HLT006:${(f.title.match(/slot (\S+):/) || [])[1]}`;
   if (f.code === "LOG002") return `LOG002:${e.source}:${e.code}`;
-  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || (e.indexes ? e.indexes.join("|") : "");
+  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || e.userType || e.serverId || e.path || (Array.isArray(e.indexes) ? e.indexes.map((x) => x.name || x).join("|") : "");
   return `${f.code}:${id}`;
 }
 
 export function sourcesFor(level) {
   const f = features(level);
-  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
+  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.portal && "portal-health", f.datastore && "datastore", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
 }
 
 export class Game {
@@ -63,6 +63,7 @@ export class Game {
     for (const n of step(s, this.rand)) this.log(n);
     backupTick(s);
     { const { hour, weekday } = clock(s.tick); siteTick(s, (e) => this.log(e), businessLoad(hour, weekday) + (s.db.extraConnections > 0 ? 0.6 : 0), this.rand); }
+    enterpriseTick(s);
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -119,6 +120,7 @@ export class Game {
     s.counters.inventoryClean = !this.findings.some((x) => x.source === "inventory" && RANK[x.severity] >= RANK.WARN);
     const logs = this.findings.find((x) => x.code === "LOG001");
     if (logs && logs.severity === "OK" && s.tick >= 24) s.counters.quietLogs = true;
+    if (this.findings.some((x) => x.code === "PTL008" && x.severity === "OK")) s.counters.federationOk = true;
     if (s.level >= 3 && !problems.length && !isDown(s)) s.counters.cleanScan = true;
     this.progress();
   }

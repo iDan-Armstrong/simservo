@@ -118,6 +118,24 @@ try {
   }
   if (process.env.SHOTS) await page.screenshot({ path: "test-results/drill.png" });
 
+  // Portal and Data Store through the real egisops portal-health / datastore
+  await page.evaluate(async () => {
+    const g = window.simservo; g.s.level = 10; g.s.xp = Math.max(g.s.xp, 4400); g.s.pending = null;
+    const { SCENARIOS } = await import("./js/scenarios.js");
+    SCENARIOS.find((x) => x.id === "datastore_down").start(g.s, () => {});
+    g.tick();
+    document.querySelector("#btn-scan").click();
+  });
+  const entCodes = await page.evaluate(() => window.simservo.findings.filter((f) => ["portal-health", "datastore"].includes(f.source)).map((f) => `${f.code} ${f.severity}`));
+  console.log("portal/datastore:", entCodes.join(", "));
+  if (!entCodes.includes("DST002 FAIL")) fail("stopped data store did not raise DST002 FAIL");
+  if (!entCodes.includes("PTL008 FAIL")) fail("portal federation validation did not fail with the data store down");
+  await page.click("#findings .finding:has(.code:text-is('DST002'))");
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/datastore.png" });
+  await page.click("#findings .finding.open button[data-a='start_datastore']");
+  const dsAfter = await page.evaluate(() => { const g = window.simservo; g.tick(); document.querySelector("#btn-scan").click(); return g.findings.filter((f) => ["DST002", "PTL008"].includes(f.code)).map((f) => `${f.code} ${f.severity}`); });
+  if (dsAfter.some((c) => c.endsWith("FAIL"))) fail(`starting the data store did not clear the failures: ${dsAfter}`);
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

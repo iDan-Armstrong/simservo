@@ -38,14 +38,24 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Tier 1 (Fundamentals), Tier 4 (Backup and Restore) and
-  Tier 5 (ArcGIS Server) are playable now, because their real tools exist.
+- 100 levels in ten tiers. Tier 1 (Fundamentals), Tier 4 (Backup and Restore), Tier 5
+  (ArcGIS Server), Tier 6 (Portal and Federation) and Tier 7 (Data Store) are playable
+  now, because their real tools exist.
 - ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
   that do not come back after patch night, and licenses that run out. The real
   `egisops server-health` scores it. From level 5, `egisops services` and `logs` watch the
   site's services (a crashed publish, a storm-day pool that maxes out) and its SEVERE log
   entries. Log codes and messages in the simulation are illustrative. Level 41 adds a
   second machine.
+- Portal for ArcGIS from level 9: the real `egisops portal-health` checks the portal's
+  machines, user type licenses, federation with the hosting server and the search index.
+  Scenarios hang the portal, run out of Field Worker licenses, and leave the search index
+  behind a content migration. A second portal machine is in the shop.
+- ArcGIS Data Store from level 10: the real `egisops datastore` validates the hosting
+  server's relational data store. When it stops, hosted layers fail, the ArcGIS Server logs
+  fill and the portal's federation check fails too, so one outage shows up in three
+  tools. With a standby machine (in the shop) the standby takes over and it is only a
+  warning. A full backup share stops backups quietly until the backup age gives it away.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -78,9 +88,9 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 
 | Test | What it proves |
 | --- | --- |
-| `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops; every scenario raises the code it teaches through the real evaluators; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

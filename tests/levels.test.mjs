@@ -17,8 +17,8 @@ test("xp thresholds rise and levelForXp inverts them", () => {
 
 test("tiers with a real tool are playable and every unlock has a tutorial", () => {
   const playable = new Set(TIERS.filter((t) => t.status === "playable").map((t) => t.tier));
-  // fundamentals, backup/restore (rdsops restore-drill), ArcGIS Server (egisops server-health)
-  assert.deepEqual([...playable], [1, 4, 5]);
+  // fundamentals, restore drills, ArcGIS Server, Portal (portal-health), Data Store (datastore)
+  assert.deepEqual([...playable], [1, 4, 5, 6, 7]);
   for (const l of LEVELS) assert.equal(l.playable, playable.has(l.tier), `level ${l.n}`);
   for (const l of LEVELS) if (l.unlocks.length && l.n > 1) assert.ok(l.tutorial, `level ${l.n}`);
 });

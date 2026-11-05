@@ -26,7 +26,7 @@ test("annotate marks terms once, prefers the longest phrase, and respects case f
   assert.deepEqual(marked(html), ["enterprise geodatabase", "Amazon RDS", "PostGIS"]);
   assert.deepEqual(marked(annotate("cache hit ratio is low, check the cache")), ["cache hit ratio"]);
   assert.deepEqual(marked(annotate("rds:egdb-lab snapshot")), ["snapshot"]); // lowercase rds is an id, not a term
-  assert.deepEqual(marked(annotate("Multi-AZ standby")), ["Multi-AZ"]);
+  assert.deepEqual(marked(annotate("Multi-AZ standby")), ["Multi-AZ", "standby"]);
 });
 
 test("annotate never touches code or markup, and keeps escaped text escaped", () => {

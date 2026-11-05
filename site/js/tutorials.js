@@ -45,6 +45,14 @@ export const LINKS = {
   esriPg: { title: "Esri: ArcGIS requirements for PostgreSQL", url: "https://doc.esri.com/en/arcgis-enterprise/latest/plan/database-requirements-postgresql.html" },
   esriPools: { title: "Esri: Configure service instance settings", url: "https://enterprise.arcgis.com/en/server/latest/administer/windows/configure-service-instance-settings.htm" },
   esriCompress: { title: "Esri: Compress (geodatabase)", url: "https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/compress.htm" },
+  esriPortalHealth: { title: "Esri REST: Health Check (Portal)", url: "https://developers.arcgis.com/rest/enterprise-administration/portal/health-check-portal/" },
+  esriPortalLicense: { title: "Esri REST: License (Portal)", url: "https://developers.arcgis.com/rest/enterprise-administration/portal/license/" },
+  esriFedValidate: { title: "Esri REST: Validate - Servers (federation)", url: "https://developers.arcgis.com/rest/enterprise-administration/portal/validate-servers/" },
+  esriIndexer: { title: "Esri REST: Status - Indexer", url: "https://developers.arcgis.com/rest/enterprise-administration/portal/indexer-status/" },
+  esriPortalHa: { title: "Esri: Configuring a highly available portal", url: "https://enterprise.arcgis.com/en/portal/11.4/administer/windows/configuring-a-highly-available-portal.htm" },
+  esriDsValidate: { title: "Esri REST: Validate (ArcGIS Data Store)", url: "https://developers.arcgis.com/rest/enterprise-administration/server/validatedatastore/" },
+  esriDsUtilities: { title: "Esri: ArcGIS Data Store utility reference (backupdatastore, describedatastore)", url: "https://enterprise.arcgis.com/en/data-store/11.5/install/windows/data-store-utility-reference.htm" },
+  egisopsAdr5: { title: "ADR 0005: portal tokens and data store machine names", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0005-portal-tokens-and-data-store-machines.md" },
   esriMaint: { title: "Esri: Enterprise geodatabase maintenance tasks (PostgreSQL)", url: "https://pro.arcgis.com/en/pro-app/latest/help/data/geodatabases/manage-postgresql/enterprise-geodatabase-maintenance.htm" },
 };
 
@@ -223,21 +231,46 @@ export const TUTORIALS = {
     ],
   },
   "level-9": {
-    title: "Level 9: Busier days",
+    title: "Level 9: Portal for ArcGIS joins the watch",
     cards: [
       {
-        heading: "More happens",
-        body: "Scenarios arrive more often. Keep the fundamentals in place and the busy days stay boring.",
-        links: L("esriCompress", "esriMaint"),
+        heading: "egisops portal-health",
+        body: "Your portal is now scanned by the real egisops portal-health. It asks the portal's own health check, checks each portal machine, finds the user type license that expires soonest, counts member licenses, asks the portal to validate its federated servers, and compares the search index with what is actually stored.",
+        links: L("egisops", "esriPortalHealth", "egisopsAdr5"),
+      },
+      {
+        heading: "Federation and the hosting server",
+        body: "Your ArcGIS Server is federated with the portal and is its hosting server: hosted feature layers live in its ArcGIS Data Store. Federation validation is the portal checking that server, and its data store, from the outside. When the hosting server has a problem, the portal tells you here first.",
+        links: L("esriFedValidate"),
+      },
+      {
+        heading: "User types and the search index",
+        body: "Every member holds a user type license (Creator, Field Worker, Viewer and so on), and each type has a fixed number. When they run out, nobody new can join. Separately, the portal keeps a search index; if it falls behind the stored content, people cannot find layers that are there.",
+        links: L("esriPortalLicense", "esriIndexer"),
+      },
+      {
+        heading: "One machine or two",
+        body: "A single portal machine is a single point of failure. A second machine in a highly available pair keeps the site up when one stops. The shop now sells one. Scenarios also arrive more often from this level on.",
+        links: L("esriPortalHa"),
       },
     ],
   },
   "level-10": {
-    title: "Level 10: Tier One complete",
+    title: "Level 10: Tier One complete, and ArcGIS Data Store",
     cards: [
       {
+        heading: "egisops datastore",
+        body: "The hosting server's ArcGIS Data Store is now validated by the real egisops datastore. It runs Esri's own validate operation, then reads the machine list itself: Esri's documentation shows a data store reporting Healthy while a machine is missing, so the summary line is not trusted on its own.",
+        links: L("egisops", "esriDsValidate"),
+      },
+      {
+        heading: "Standby and backups",
+        body: "A relational data store with one machine is down whenever that machine is. A standby machine takes over as primary. Data Store also writes its own backups; the check reports the age of the newest one, and a full backup share stops them silently.",
+        links: L("esriDsUtilities"),
+      },
+      {
         heading: "Something large is out there",
-        body: "Rare events are now possible. Some of them do not care about Availability Zones. The next tiers (monitoring, upgrades, restore drills, ArcGIS Server) arrive as the real tools behind them are built.",
+        body: "Rare events are now possible. Some of them do not care about Availability Zones. Later tiers arrive as the real tools behind them are built.",
         links: L("awsPitr", "rdsopsGdb"),
       },
     ],

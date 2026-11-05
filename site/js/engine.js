@@ -88,13 +88,18 @@ export function newGame(seed = 1, callsign = "OPS-1") {
   };
 }
 
+export const EXTRA_MACHINE_MONTH = 140;
+
 export function monthlyCost(s) {
   const c = INSTANCE_CLASSES[s.instance.cls];
   const az = s.instance.multiAz ? 2 : 1;
   const compute = c.hourly * HOURS_PER_MONTH * az;
   const storage = s.instance.allocatedGb * STORAGE_GB_MONTH * az;
   const backup = Math.max(0, s.instance.backupRetention - 1) * 0.6;
-  return Math.round((compute + storage + backup) * 100) / 100;
+  // Each extra Portal or Data Store machine is one more EC2 instance (a rough figure).
+  const a = s.arcgis || {};
+  const extra = Math.max(0, ((a.portal && a.portal.machines.length) || 1) - 1) + Math.max(0, ((a.datastore && a.datastore.machines.length) || 1) - 1);
+  return Math.round((compute + storage + backup + extra * EXTRA_MACHINE_MONTH) * 100) / 100;
 }
 
 export function maxConnections(s) {
@@ -111,7 +116,7 @@ export function freeBytes(s) {
   return s.instance.allocatedGb * GIB - usedBytes(s);
 }
 
-import { logsSnapshot, newSite, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
+import { datastoreSnapshot, logsSnapshot, newSite, portalSnapshot, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
 
 export { siteUp };
 
@@ -238,6 +243,8 @@ export function snapshot(s, { production = false } = {}) {
     server: s.arcgis ? serverSnapshot(s) : undefined,
     services: s.arcgis ? servicesSnapshot(s) : undefined,
     logs: s.arcgis ? logsSnapshot(s) : undefined,
+    portal: s.arcgis ? portalSnapshot(s) : undefined,
+    datastore: s.arcgis ? datastoreSnapshot(s) : undefined,
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },
