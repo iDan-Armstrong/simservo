@@ -72,6 +72,23 @@ try {
   if (!fixed.trusted || fixed.codes.includes("SRV006 WARN")) fail("certificate replacement did not clear SRV006");
   if (process.env.SHOTS) await page.screenshot({ path: "test-results/arcgis.png" });
 
+  // Services and logs through the real egisops services / logs
+  await page.evaluate(async () => {
+    const g = window.simservo; g.s.level = 5; g.s.xp = Math.max(g.s.xp, 1000); g.s.pending = null;
+    const { SCENARIOS } = await import("./js/scenarios.js");
+    SCENARIOS.find((x) => x.id === "service_crash").start(g.s, () => {});
+    g.tick();
+    document.querySelector("#btn-scan").click();
+  });
+  const svcCodes = await page.evaluate(() => window.simservo.findings.filter((f) => ["services", "logs"].includes(f.source)).map((f) => `${f.code} ${f.severity}`));
+  console.log("services/logs:", svcCodes.join(", "));
+  if (!svcCodes.includes("SVC001 FAIL")) fail("crashed service did not raise SVC001 FAIL");
+  if (!svcCodes.some((c) => c.startsWith("LOG002"))) fail("crash did not show up in the logs check");
+  await page.click("#findings .finding:has(.code:text-is('SVC001'))");
+  await page.click("#findings .finding.open button[data-a='start_service']");
+  const stillDown = await page.evaluate(() => window.simservo.findings.filter((f) => f.code === "SVC001").length);
+  if (stillDown) fail("starting the service did not clear SVC001");
+
   // Restore drill through the real rdsops drill.plan / drill.evaluate
   await page.evaluate(() => { const g = window.simservo; g.s.level = 6; g.s.xp = Math.max(g.s.xp, 1700); g.s.instance.backupRetention = 7; g.s.pending = null; document.querySelector("#btn-scan").click(); });
   await page.click("#ops [data-drill='pitr']");

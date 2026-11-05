@@ -5,6 +5,7 @@ import { ACTIONS } from "../site/js/actions.js";
 import { clock, newGame, rng, snapshot, step } from "../site/js/engine.js";
 import { SCENARIOS } from "../site/js/scenarios.js";
 import { drillRequest, planPayload, simulateDrill } from "../site/js/drills.js";
+import { siteTick } from "../site/js/arcgis.js";
 
 function businessHours(s, rand) {
   while (clock(s.tick).hour !== 15) step(s, rand);
@@ -17,6 +18,7 @@ const scenarios = SCENARIOS.map((sc) => {
   businessHours(s, rand);
   sc.start(s, () => {});
   step(s, rand);
+  siteTick(s, () => {}, 1, rand); // business-hours load on ArcGIS Server too
   const out = { id: sc.id, teaches: sc.teaches, via: sc.via || "snapshot", snapshot: snapshot(s) };
   if (sc.via === "drill-plan") {
     // the recovery request a player would make, with backups off (retention 0)

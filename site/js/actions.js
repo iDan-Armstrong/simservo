@@ -272,6 +272,31 @@ Object.assign(ACTIONS, {
       },
     },
   ],
+  SVC001: [
+    {
+      id: "start_service", label: "Start the service", hours: 0, cost: 0,
+      available: (s) => site(s).machines.some((m) => m.realtime === "STARTED"),
+      command: (f, s) => `POST https://${site(s).host}/arcgis/admin/services/${(f.evidence || {}).service}/start`,
+      apply(s, f) {
+        const name = (f.evidence || {}).service;
+        const x = site(s).services.find((v) => `${v.folder}/${v.name}.${v.type}` === name);
+        if (x) { x.realtime = "STARTED"; x.configured = "STARTED"; }
+        s.counters.servicesStarted = (s.counters.servicesStarted || 0) + 1;
+      },
+    },
+  ],
+  SVC003: [
+    {
+      id: "raise_max_instances", label: "Raise max instances per machine by 2", hours: 0, cost: 0,
+      command: (f, s) => `ArcGIS Server Manager > ${(f.evidence || {}).service} > Pooling: maximum instances ${((f.evidence || {}).max || 0) + 2} (POST .../edit with the new maxInstancesPerNode)`,
+      apply(s, f) {
+        const name = (f.evidence || {}).service;
+        const x = site(s).services.find((v) => `${v.folder}/${v.name}.${v.type}` === name);
+        if (x) x.max += 2;
+        s.counters.poolsTuned = (s.counters.poolsTuned || 0) + 1;
+      },
+    },
+  ],
 });
 
 export function actionsFor(finding, s) {

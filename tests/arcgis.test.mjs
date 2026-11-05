@@ -41,3 +41,39 @@ test("server-health is gated to level 4", () => {
   g.scan({ manual: false });
   assert.equal(g.findings[0].code, "SRV006");
 });
+
+import { logsSnapshot, servicesSnapshot } from "../site/js/arcgis.js";
+import { SCENARIOS } from "../site/js/scenarios.js";
+import { ACTIONS } from "../site/js/actions.js";
+
+test("a crashed service logs SEVERE every hour until it is started", () => {
+  const s = newGame(5);
+  SCENARIOS.find((x) => x.id === "service_crash").start(s);
+  for (let i = 0; i < 3; i++) { s.tick += 1; siteTick(s, () => {}, 0.5, rng(5)); }
+  const entries = logsSnapshot(s).entries.filter((e) => e.source === "Maps/Sewer.FeatureServer");
+  assert.equal(entries.length, 3);
+  const finding = { code: "SVC001", title: "x", evidence: { service: "Maps/Sewer.FeatureServer" } };
+  ACTIONS.SVC001[0].apply(s, finding);
+  s.tick += 1; siteTick(s, () => {}, 0.5, rng(5));
+  assert.equal(logsSnapshot(s).entries.filter((e) => e.source === "Maps/Sewer.FeatureServer").length, 3);
+  assert.ok(servicesSnapshot(s).services.every((x) => x.realtime === "STARTED"));
+});
+
+test("storm day pins the Stormwater pool and raising max instances relieves it", () => {
+  const s = newGame(6);
+  SCENARIOS.find((x) => x.id === "storm_day").start(s);
+  siteTick(s, () => {}, 1, rng(6));
+  const storm = () => servicesSnapshot(s).services.find((x) => x.name === "Stormwater");
+  assert.equal(storm().busy, storm().max);
+  ACTIONS.SVC003[0].apply(s, { evidence: { service: "Maps/Stormwater.MapServer", max: 2 } });
+  assert.equal(storm().max, 4);
+});
+
+test("logs older than 24 hours leave the window", () => {
+  const s = newGame(7);
+  SCENARIOS.find((x) => x.id === "service_crash").start(s);
+  siteTick(s, () => {}, 0.5, rng(7));
+  ACTIONS.SVC001[0].apply(s, { evidence: { service: "Maps/Sewer.FeatureServer" } });
+  s.tick += 25;
+  assert.equal(logsSnapshot(s).entries.length, 0);
+});

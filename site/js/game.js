@@ -2,7 +2,7 @@
 // `evaluate(snapshot)` is injected: in the browser it is the real rdsops running in
 // Pyodide; in unit tests it can be a stub.
 
-import { clock, isDown, newGame, rng, snapshot, step } from "./engine.js";
+import { businessLoad, clock, isDown, newGame, rng, snapshot, step } from "./engine.js";
 import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
@@ -15,13 +15,14 @@ const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
 export function incidentKey(f) {
   const e = f.evidence || {};
   if (f.code === "HLT006") return `HLT006:${(f.title.match(/slot (\S+):/) || [])[1]}`;
-  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.license || (e.indexes ? e.indexes.join("|") : "");
+  if (f.code === "LOG002") return `LOG002:${e.source}:${e.code}`;
+  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || (e.indexes ? e.indexes.join("|") : "");
   return `${f.code}:${id}`;
 }
 
 export function sourcesFor(level) {
   const f = features(level);
-  return new Set(["inventory", f.health && "health", f.server && "server-health", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
+  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
 }
 
 export class Game {
@@ -61,7 +62,7 @@ export class Game {
     const s = this.s;
     for (const n of step(s, this.rand)) this.log(n);
     backupTick(s);
-    siteTick(s, (e) => this.log(e));
+    { const { hour, weekday } = clock(s.tick); siteTick(s, (e) => this.log(e), businessLoad(hour, weekday) + (s.db.extraConnections > 0 ? 0.6 : 0), this.rand); }
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -116,6 +117,8 @@ export class Game {
     this.reconcile();
     const problems = this.findings.filter((x) => RANK[x.severity] >= RANK.WARN);
     s.counters.inventoryClean = !this.findings.some((x) => x.source === "inventory" && RANK[x.severity] >= RANK.WARN);
+    const logs = this.findings.find((x) => x.code === "LOG001");
+    if (logs && logs.severity === "OK" && s.tick >= 24) s.counters.quietLogs = true;
     if (s.level >= 3 && !problems.length && !isDown(s)) s.counters.cleanScan = true;
     this.progress();
   }

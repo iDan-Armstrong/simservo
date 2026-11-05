@@ -49,6 +49,10 @@ function renderMap(game) {
   const machinesUp = ags.machines.filter((m) => m.realtime === "STARTED").length;
   const agsUp = machinesUp > 0;
   const agsColor = agsUp ? "var(--cyan)" : "var(--fail)";
+  const svcs = ags.services || [];
+  const svcUp = agsUp ? svcs.filter((x) => x.realtime === "STARTED").length : 0;
+  const svcDown = svcUp < svcs.filter((x) => x.configured === "STARTED").length;
+  const svcHot = svcs.some((x) => x.realtime === "STARTED" && x.max && x.busy >= x.max);
   const standby = inst.multiAz
     ? `<g><rect x="300" y="250" width="100" height="56" rx="8" fill="#120a2a" stroke="var(--cyan)" stroke-dasharray="4 3"/>
        <text x="350" y="274" fill="var(--cyan)" font-size="11" text-anchor="middle">standby</text>
@@ -70,7 +74,7 @@ function renderMap(game) {
        <text x="305" y="64" fill="${agsColor}" font-size="11" text-anchor="middle">ArcGIS Server ${esc(ags.version)}</text>
        <text x="305" y="80" fill="${machinesUp === ags.machines.length ? "var(--dim)" : "var(--fail)"}" font-size="10" text-anchor="middle">${machinesUp}/${ags.machines.length} machine${ags.machines.length > 1 ? "s" : ""} up${ags.licensed ? "" : "  UNLICENSED"}</text>
        <text x="305" y="95" fill="${ags.cert.trusted ? "var(--ok)" : "var(--warn)"}" font-size="10" text-anchor="middle">${ags.cert.trusted ? "trusted TLS" : "self-signed TLS"}</text>
-       <text x="305" y="110" fill="${storm ? "var(--warn)" : "var(--dim)"}" font-size="10" text-anchor="middle">${storm ? "LOAD SPIKE" : "normal load"}</text></g>
+       <text x="305" y="110" fill="${svcDown ? "var(--fail)" : storm || svcHot ? "var(--warn)" : "var(--dim)"}" font-size="10" text-anchor="middle">${svcUp}/${svcs.length} services${svcHot ? ", pool maxed" : storm ? ", LOAD SPIKE" : ""}</text></g>
     <line x1="186" y1="80" x2="228" y2="80" stroke="var(--dim)" marker-end="url(#arr)"/>
     <line x1="305" y1="124" x2="230" y2="168" stroke="var(--dim)" marker-end="url(#arr)"/>
     <g class="${down ? "pulse" : ""}"><rect x="110" y="170" width="180" height="78" rx="10" fill="#120a2a" stroke="${color}" stroke-width="2"/>

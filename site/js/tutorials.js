@@ -17,6 +17,10 @@ export const LINKS = {
   esriMachines: { title: "Esri REST: Machines", url: "https://developers.arcgis.com/rest/enterprise-administration/server/machines/" },
   esriMachineStatus: { title: "Esri REST: Status - Machine", url: "https://developers.arcgis.com/rest/enterprise-administration/server/status/" },
   esriLicenses: { title: "Esri REST: Licenses", url: "https://developers.arcgis.com/rest/enterprise-administration/server/licenses/" },
+  esriServicesRoot: { title: "Esri REST: Services/Root Folder", url: "https://developers.arcgis.com/rest/enterprise-administration/server/services/" },
+  esriReport: { title: "Esri REST: Services Report", url: "https://developers.arcgis.com/rest/enterprise-administration/server/servicesreport/" },
+  esriLogs: { title: "Esri REST: Query - Logs", url: "https://developers.arcgis.com/rest/enterprise-administration/server/logsquery/" },
+  egisopsAdr4: { title: "ADR 0004: where Esri's docs are ambiguous", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0004-ambiguous-docs.md" },
   esriToken: { title: "Esri REST: Generate Token", url: "https://developers.arcgis.com/rest/enterprise-administration/server/generatetoken/" },
   rdsopsGdb: { title: "Enterprise geodatabase on RDS: setup notes", url: `${RDSOPS}/blob/main/docs/geodatabase-on-rds.md` },
   awsRds: { title: "AWS: What is Amazon RDS?", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html" },
@@ -144,8 +148,18 @@ export const TUTORIALS = {
     ],
   },
   "level-5": {
-    title: "Level 5: Availability",
+    title: "Level 5: Services, logs and availability",
     cards: [
+      {
+        heading: "egisops services",
+        body: "Every ArcGIS Server service has a configured state (what an admin asked for) and a real-time state (what is actually happening). A service configured to run that is not running fails every request. The report also shows each pool's busy and maximum instances: when all are busy, new requests wait.",
+        links: L("esriReport", "esriServicesRoot", "egisops"),
+      },
+      {
+        heading: "egisops logs",
+        body: "ArcGIS Server logs every failure, so one broken service can write hundreds of SEVERE lines a day. The logs check groups them by source and code so you see one problem, not three hundred lines. Errors stay in the 24-hour window after you fix the cause, so the count falls the next day.",
+        links: L("esriLogs", "egisopsAdr4"),
+      },
       {
         heading: "Multi-AZ",
         body: "A Multi-AZ instance keeps a synchronous standby in another Availability Zone and fails over in about a minute. It doubles the instance bill. Whether that is worth it is a business decision the scenarios will help you make.",

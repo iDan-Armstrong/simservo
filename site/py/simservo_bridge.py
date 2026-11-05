@@ -14,7 +14,8 @@ from datetime import datetime
 
 import egisops
 import rdsops
-from egisops import server
+from egisops import logs as eglogs
+from egisops import server, services
 from rdsops import compat, drill, health, inventory, maintenance
 
 
@@ -88,6 +89,25 @@ def _server(d: dict) -> server.ServerSnapshot:
     )
 
 
+def _services(d: dict) -> services.ServicesSnapshot:
+    return services.ServicesSnapshot(
+        folders=d.get("folders", []),
+        services=[services.Service(**x) for x in d.get("services", [])],
+        errors=d.get("errors", []),
+    )
+
+
+def _logs(d: dict) -> eglogs.LogSnapshot:
+    return eglogs.LogSnapshot(
+        hours=d.get("hours", 24),
+        level=d.get("level", "SEVERE"),
+        entries=[eglogs.LogEntry(e["type"], e.get("code"), e["source"], e["machine"],
+                                 e["message"], _dt(e.get("time"))) for e in d.get("entries", [])],
+        truncated=d.get("truncated", False),
+        errors=d.get("errors", []),
+    )
+
+
 def _tag(findings, source):
     out = []
     for f in findings:
@@ -107,6 +127,10 @@ def evaluate(snapshot_json: str) -> str:
     )
     if s.get("server"):
         out += _tag(server.evaluate(_server(s["server"]), _dt(s["now"])), "server-health")
+    if s.get("services"):
+        out += _tag(services.evaluate(_services(s["services"])), "services")
+    if s.get("logs"):
+        out += _tag(eglogs.evaluate(_logs(s["logs"])), "logs")
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")

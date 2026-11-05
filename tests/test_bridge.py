@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -51,7 +51,7 @@ def test_fresh_game_findings_come_from_rdsops(catalog):
     by_code = {f["code"]: f for f in findings}
     assert by_code["INV002"]["severity"] == "FAIL"  # the game starts with a public instance
     assert {f["source"] for f in findings} == {
-        "inventory", "server-health", "health", "maintenance", "compat"}
+        "inventory", "server-health", "services", "logs", "health", "maintenance", "compat"}
     assert by_code["SRV006"]["severity"] == "WARN"  # fresh installs ship a self-signed certificate
     assert all(set(f) >= {"code", "severity", "title", "detail", "evidence"} for f in findings)
 

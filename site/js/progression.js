@@ -17,6 +17,7 @@ export const QUESTS = [
   { id: "q_minor", title: "Patch on your schedule", goal: "Turn off auto minor upgrades (INV008)", minLevel: 4, done: (s) => !s.instance.autoMinor },
   { id: "q_clean", title: "Clean bill of health", goal: "A full scan with no WARN or FAIL", minLevel: 3, done: (s) => Boolean(s.counters.cleanScan) },
   { id: "q_trust", title: "Trust me", goal: "Replace the self-signed certificate on ArcGIS Server (SRV006)", minLevel: 4, done: (s) => Boolean(s.arcgis && s.arcgis.cert.trusted) },
+  { id: "q_quiet_logs", title: "Quiet logs", goal: "A full day with no SEVERE entries in the ArcGIS Server logs (LOG001)", minLevel: 5, done: (s) => Boolean(s.counters.quietLogs) },
   { id: "q_drill", title: "Prove your backups", goal: "Pass a restore drill with no warnings (DRL)", minLevel: 6, done: (s) => (s.counters.cleanDrills || 0) >= 1 },
   { id: "q_week", title: "Week one", goal: "Survive seven game days", minLevel: 3, done: (s) => s.tick >= 24 * 7 },
 ];
@@ -37,6 +38,7 @@ export const ACHIEVEMENTS = [
   { id: "auditor_approved", title: "Auditor Approved", desc: "Answer an audit with a passing drill.", test: (s) => (s.counters.auditPassed || 0) >= 1 },
   { id: "green_padlock", title: "Green Padlock", desc: "Serve maps with a trusted certificate.", test: (s) => (s.counters.trustedCert || 0) >= 1 },
   { id: "keeper_of_keys", title: "Keeper of Keys", desc: "Renew a license before it expires.", test: (s) => (s.counters.licenseRenewals || 0) >= 1 },
+  { id: "pool_shark", title: "Pool Shark", desc: "Tune an instance pool that was maxed out.", test: (s) => (s.counters.poolsTuned || 0) >= 1 },
   { id: "tier_one", title: "Tier One", desc: "Reach level 10.", test: (s) => s.level >= 10 },
   { id: "it_is_real", title: "It Is Real", desc: "See Trollzilla.", hidden: true, test: (s) => (s.counters.trollzilla || 0) >= 1 },
   { id: "trollzilla_survivor", title: "Trollzilla Survivor", desc: "Still standing a week after Trollzilla.", hidden: true, test: (s) => Boolean(s.counters.survivedTrollzilla) },

@@ -17,7 +17,7 @@ running inside the page through Pyodide.
 
 | Real | Simulated |
 | --- | --- |
-| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill` and egisops `server-health`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
+| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill` and egisops `server-health`, `services`, `logs`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
 | Finding codes, severities, thresholds and fix text | The numbers: connections, dead rows, WAL, storage, transaction ID age |
 | The commands each action shows (AWS CLI, SQL, console steps) | Time (one tick is one game hour) and money |
 | Tutorial links to AWS, Esri, PostgreSQL and PostGIS docs, checked by CI | Scenarios, quests, XP and achievements |
@@ -42,7 +42,10 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   Tier 5 (ArcGIS Server) are playable now, because their real tools exist.
 - ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
   that do not come back after patch night, and licenses that run out. The real
-  `egisops server-health` scores it. Level 41 adds a second machine.
+  `egisops server-health` scores it. From level 5, `egisops services` and `logs` watch the
+  site's services (a crashed publish, a storm-day pool that maxes out) and its SEVERE log
+  entries. Log codes and messages in the simulation are illustrative. Level 41 adds a
+  second machine.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only

@@ -111,7 +111,7 @@ export function freeBytes(s) {
   return s.instance.allocatedGb * GIB - usedBytes(s);
 }
 
-import { newSite, serverSnapshot, siteUp } from "./arcgis.js";
+import { logsSnapshot, newSite, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
 
 export { siteUp };
 
@@ -119,7 +119,7 @@ export function isDown(s) {
   return s.instance.status !== "available";
 }
 
-function businessLoad(hour, weekday) {
+export function businessLoad(hour, weekday) {
   if (weekday === 0 || weekday === 6) return 0.25;
   if (hour >= 13 && hour < 23) return 1; // 08:00-18:00 US Eastern, in UTC
   if (hour >= 11 && hour < 13) return 0.6;
@@ -236,6 +236,8 @@ export function snapshot(s, { production = false } = {}) {
     production,
     now: isoAt(s.tick),
     server: s.arcgis ? serverSnapshot(s) : undefined,
+    services: s.arcgis ? servicesSnapshot(s) : undefined,
+    logs: s.arcgis ? logsSnapshot(s) : undefined,
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },

@@ -69,7 +69,8 @@ test("a dropped table comes back only if backups were on", () => {
     SCENARIOS.find((x) => x.id === "dropped_table").start(g.s);
     assert.equal(g.s.db.lost.length, 1);
     const r = g.recoverTable("sewer.manholes");
-    for (let i = 0; i < 5; i++) g.tick();
+    // Check as soon as the restore finishes; later random scenarios may drop it again.
+    for (let i = 0; i < 10 && g.s.pending; i++) g.tick();
     const back = g.s.db.tables.some((t) => t.table === "manholes");
     assert.equal(back, retention > 0, `retention ${retention}`);
     assert.equal(r.ok, retention > 0);
