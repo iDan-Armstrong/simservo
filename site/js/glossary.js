@@ -16,6 +16,8 @@ export const TERMS = [
   { term: "web adaptor", def: "A small web application on IIS or Tomcat that receives traffic on the usual web port (443) and passes it to ArcGIS Server or Portal." },
   { term: "Amazon S3", also: ["S3"], def: "AWS object storage. Backups written to an S3 bucket live outside the servers they protect, and an IAM role can grant access without a stored key." },
   { term: "JSON", def: "A plain-text format for structured data. WebGISDR can write its result as JSON, which a script or egisops can read to see what happened." },
+  { term: "fleet", def: "All the databases you run, across Regions and accounts, looked at together. Problems that only show across many, like version drift, show up here." },
+  { term: "drift", also: ["version drift"], def: "Copies of the same thing slowly becoming different, such as instances on different minor versions. A fix tested on one may not hold on another." },
   { term: "Amazon Aurora", also: ["Aurora", "Aurora PostgreSQL"], def: "AWS's cluster database compatible with PostgreSQL. Storage is shared across Availability Zones and readers take over on failure. Esri lists which Aurora versions ArcGIS supports." },
   { term: "GovCloud", also: ["AWS GovCloud (US)", "AWS GovCloud"], def: "AWS Regions for US government workloads, in their own partition (ARNs start arn:aws-us-gov). Services and versions can reach them later than other Regions." },
   { term: "ARN", def: "Amazon Resource Name: the full ID of an AWS resource. Its partition part is aws in most Regions and aws-us-gov in GovCloud." },
@@ -148,6 +150,7 @@ export const CODES = {
   PTL: "Portal health (egisops portal-health): portal machines, licenses, federation and the search index.",
   DST: "Data Store (egisops datastore): ArcGIS Data Store validation, machines, standby and backups.",
   STK: "Stack compatibility (egisops stack-compat): Portal, Server, Data Store, the geodatabase and Pro on releases that belong together.",
+  FLT: "Fleet (rdsops fleet): every RDS geodatabase across Regions, posture and Esri compat per instance, and drift across them.",
   BAK: "Site backups (egisops backup-check): the WebGISDR properties file, the newest backup, and the last run.",
 };
 

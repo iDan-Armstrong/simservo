@@ -227,3 +227,6 @@ a { color: var(--cyan); }
 .campaign .col .btn { text-align: left; }
 .campaign .col .btn.done { color: var(--ok); border-color: var(--ok); opacity: 0.8; }
 .client-tag { font-size: 10px; color: var(--cyan); border: 1px solid var(--cyan); border-radius: 4px; padding: 0 4px; margin-right: 6px; }
+.fleet-list { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.fleet-row { border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.fleet-row .row.wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }

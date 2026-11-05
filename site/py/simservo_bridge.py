@@ -16,7 +16,7 @@ import egisops
 import rdsops
 from egisops import logs as eglogs
 from egisops import backup, datastore, portal, server, services, stack
-from rdsops import compat, drill, health, inventory, maintenance
+from rdsops import compat, drill, fleet, health, inventory, maintenance
 
 
 def _dt(value):
@@ -181,6 +181,16 @@ def _takeover(d: dict) -> list[dict]:
     return []
 
 
+def _fleet(d: dict) -> fleet.FleetSnapshot:
+    return fleet.FleetSnapshot(
+        members=[fleet.Member(m["region"], _instance(m["facts"]), m.get("arcgis"), m.get("production", False))
+                 for m in d.get("members", [])],
+        regions=d.get("regions", []),
+        default_arcgis=d.get("default_arcgis"),
+        errors=d.get("errors", []),
+    )
+
+
 def _logs(d: dict) -> eglogs.LogSnapshot:
     return eglogs.LogSnapshot(
         hours=d.get("hours", 24),
@@ -223,6 +233,8 @@ def evaluate(snapshot_json: str) -> str:
         out += _tag(backup.evaluate(_backup(s["backups"]), _dt(s["now"])), "backup-check")
     if s.get("stack"):
         out += _tag(stack.evaluate(_stack(s["stack"]), *stack.rdsops_hooks()), "stack-compat")
+    if s.get("fleet"):
+        out += _tag(fleet.evaluate(_fleet(s["fleet"])), "fleet")
     if s.get("takeover"):
         out += _takeover(s["takeover"])
     if s.get("health"):

@@ -125,6 +125,8 @@ function drain() {
     else if (e.kind === "achievement") toast("Achievement", `${e.achievement.title}: ${e.achievement.desc}`);
     else if (e.kind === "level") queue.push(() => levelUp(e.from, e.to));
     else if (e.kind === "trollzilla") queue.push(trollzilla);
+    else if (e.kind === "fleet" && e.started) queue.push(() => showTutorial("fleet"));
+    else if (e.kind === "fleet" && e.arrival) toast("New site", `${e.arrival} joined your fleet`);
     else if (e.kind === "takeover") queue.push(() => showTutorial(e.finale ? "takeover-finale" : `takeover-${e.chapter}`));
     else if (e.kind === "campaign") queue.push(() => showTutorial(e.finale ? "expansion-finale" : `expansion-${e.chapter}`));
   }
@@ -168,6 +170,13 @@ const handlers = {
   drill(mode) {
     const r = game.runDrill(mode);
     if (!r.ok) toast("Drill not run", r.reason);
+    drain();
+    renderAll(game, handlers);
+    writeSave(game.s);
+  },
+  fleet(memberId, fixId) {
+    const r = game.fleetAct(memberId, fixId);
+    if (!r.ok) toast("Not now", r.reason);
     drain();
     renderAll(game, handlers);
     writeSave(game.s);

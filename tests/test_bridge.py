@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR|FLT)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -163,3 +163,15 @@ def test_takeover_through_real_aurora_plan(catalog):
     promoted = [f for f in evaluate(tk["promoted"]) if f["source"] == "client-compat"]
     assert promoted and max(RANK[f["severity"]] for f in promoted) <= RANK["INFO"]
     assert promoted[0]["title"].startswith("Aurora PostgreSQL 17")
+
+
+def test_fleet_through_real_rdsops_fleet(catalog):
+    found = [f for f in evaluate(catalog["fleet"]) if f["source"] == "fleet"]
+    rows = {f["evidence"]["instance"]: f for f in found if f["code"] == "FLT001"}
+    assert len(rows) == 8  # your instance, the client's test instance, six arrivals
+    assert rows["parks-egdb"]["severity"] == "FAIL" and "INV002" in rows["parks-egdb"]["evidence"]["codes"]
+    assert rows["harbor-egdb"]["severity"] == "FAIL" and "INV001" in rows["harbor-egdb"]["evidence"]["codes"]
+    assert rows["transit-egdb"]["evidence"]["arcgis"] == "11.5"
+    assert rows["nwsa-egdb-test"]["evidence"]["region"] == "us-gov-west-1"
+    codes = {f["code"] for f in found}
+    assert {"FLT000", "FLT002", "FLT003"} <= codes

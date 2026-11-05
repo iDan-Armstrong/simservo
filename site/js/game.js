@@ -10,6 +10,7 @@ import { XP, checkAchievements, checkQuests } from "./progression.js";
 import { addMachine, enterpriseTick, ensureSite, siteTick, webgisdrTick } from "./arcgis.js";
 import { STEPS, campaignTick, checkFinale, ensureCampaign, startStep } from "./campaign.js";
 import * as takeover from "./takeover.js";
+import * as fleet from "./fleet.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -25,7 +26,7 @@ export function incidentKey(f) {
   const e = f.evidence || {};
   if (f.code === "HLT006") return `HLT006:${(f.title.match(/slot (\S+):/) || [])[1]}`;
   if (f.code === "LOG002") return `LOG002:${e.source}:${e.code}`;
-  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || e.userType || e.serverId || e.path || (Array.isArray(e.indexes) ? e.indexes.map((x) => x.name || x).join("|") : "");
+  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || e.instance || e.userType || e.serverId || e.path || (Array.isArray(e.indexes) ? e.indexes.map((x) => x.name || x).join("|") : "");
   return `${f.code}:${id}`;
 }
 
@@ -77,6 +78,8 @@ export class Game {
     if (features(s.level).backups) webgisdrTick(s, (e) => this.log(e));
     for (const e of campaignTick(s, (x) => this.log(x))) this.emit("campaign", e);
     for (const e of takeover.takeoverTick(s, (x) => this.log(x))) this.emit("takeover", e);
+    const failing = this.findings.filter((x) => x.code === "FLT001" && x.severity === "FAIL").length;
+    for (const e of fleet.fleetTick(s, (x) => this.log(x), failing)) this.emit("fleet", e);
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -126,6 +129,11 @@ export class Game {
     }
     const allowed = sourcesFor(s.level);
     if (s.takeover && s.takeover.started != null) { allowed.add("aurora-plan"); allowed.add("client-compat"); }
+    if (fleet.startFleet(s)) {
+      this.log({ kind: "level", text: "Fleet Command: more sites are coming." });
+      this.emit("fleet", { started: true });
+    }
+    if (s.fleet && s.fleet.started != null) allowed.add("fleet");
     const snap = snapshot(s, { production: features(s.level).production });
     const all = this.evaluate(snap);
     this.findings = all.filter((x) => allowed.has(x.source));
@@ -139,6 +147,9 @@ export class Game {
     const logs = this.findings.find((x) => x.code === "LOG001");
     if (logs && logs.severity === "OK" && s.tick >= 24) s.counters.quietLogs = true;
     if (this.findings.some((x) => x.code === "PTL008" && x.severity === "OK")) s.counters.federationOk = true;
+    const rows = this.findings.filter((x) => x.code === "FLT001");
+    if (rows.length >= 6 && rows.every((x) => x.severity !== "FAIL")) s.counters.fleetClean6 = true;
+    if (rows.length >= 4 && !this.findings.some((x) => x.code === "FLT002" && /minors/.test(x.title))) s.counters.fleetNoDrift = true;
     if (checkFinale(s, this.findings)) {
       this.award(XP.expansion, "Expansion complete: The 12.1 Upgrade");
       this.emit("campaign", { finale: true });
@@ -220,6 +231,12 @@ export class Game {
   // ------------------------------------------------------------- actions
   busy() {
     return Boolean(this.s.pending);
+  }
+
+  fleetAct(memberId, fixId) {
+    const r = fleet.startFix(this.s, memberId, fixId, (e) => this.log(e));
+    if (r.ok) this.scan({ manual: false });
+    return r;
   }
 
   takeoverAct(id) {

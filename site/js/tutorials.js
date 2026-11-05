@@ -56,6 +56,7 @@ export const LINKS = {
   awsAuroraSnapshot: { title: "AWS: Migrating an RDS for PostgreSQL snapshot to Aurora", url: "https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Migrating.RDSPostgreSQL.Import.Console.html" },
   awsGovCloud: { title: "AWS GovCloud (US) User Guide", url: "https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/welcome.html" },
   awsArn: { title: "AWS: ARN format and partitions", url: "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html" },
+  rdsopsFleet: { title: "rdsops fleet: every geodatabase instance in one view", url: `${RDSOPS}#fleet` },
   rdsopsAurora: { title: "Runbook: move an RDS geodatabase to Aurora (rdsops aurora-plan)", url: `${RDSOPS}/blob/main/docs/runbooks/aurora-migration.md` },
   rdsopsAdrAurora: { title: "ADR 0007: Aurora as a migration target", url: `${RDSOPS}/blob/main/docs/adr/0007-aurora-as-a-migration-target.md` },
   esriUpgrade: { title: "Esri: Upgrade ArcGIS Enterprise (paths, order, retired features)", url: "https://doc.esri.com/en/arcgis-enterprise/latest/deploy/upgrade-arcgis-enterprise.html" },
@@ -427,6 +428,22 @@ TUTORIALS["takeover-finale"] = {
       heading: "Under new management",
       body: "The client runs on Aurora PostgreSQL 17.6, encrypted, with a reader in a second zone, and rdsops compat agrees Esri supports it. They signed. Their site is now yours to watch.",
       links: L("rdsopsAurora"),
+    },
+  ],
+};
+
+TUTORIALS["fleet"] = {
+  title: "Fleet Command",
+  cards: [
+    {
+      heading: "More than one database",
+      body: "Word got around. The client's test instance is now yours, and more sites will join every few days, each with the problems inherited databases have. The real rdsops fleet scores all of them at once: the same posture and Esri checks as inventory and compat, per instance, plus what only shows across many, like version drift and instances nobody tagged with their ArcGIS release.",
+      links: L("rdsopsFleet", "rdsops"),
+    },
+    {
+      heading: "What it covers",
+      body: "rdsops fleet reads RDS for PostgreSQL instances in every Region you give it, GovCloud included through its own profile. The client's Aurora cluster is not in it; rdsops operates RDS instances. Each site pays while it is under contract, and each failing site costs you every hour.",
+      links: L("rdsopsAdrAurora", "awsGovCloud"),
     },
   ],
 };

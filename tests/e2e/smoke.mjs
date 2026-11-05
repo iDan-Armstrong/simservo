@@ -201,6 +201,25 @@ try {
   if (tk.before !== 1 || tk.after !== 2 || tk.ch3 !== 3 || !tk.finished) fail(`takeover chapters wrong: ${JSON.stringify(tk)}`);
   if (process.env.SHOTS) { await page.evaluate(() => document.getElementById("modal").classList.add("hidden")); await page.screenshot({ path: "test-results/takeover.png" }); }
 
+  // Fleet, through the real rdsops fleet
+  const fl = await page.evaluate(() => {
+    const g = window.simservo;
+    g.s.fleet.nextArrival = g.s.tick;
+    g.tick();
+    document.querySelector("#btn-scan").click();
+    document.getElementById("modal").classList.add("hidden");
+    return { members: g.s.fleet.members.map((m) => m.id), rows: g.findings.filter((f) => f.code === "FLT001").map((f) => `${f.evidence.instance} ${f.severity}`) };
+  });
+  console.log("fleet:", JSON.stringify(fl));
+  if (!fl.rows.some((r) => r.startsWith("parks-egdb FAIL"))) fail("parks-egdb should fail in rdsops fleet");
+  if (await page.isVisible("#troll:not(.hidden)")) await page.click("#troll-ok"); // a rare monster can show up any time
+  await page.evaluate(() => document.getElementById("modal").classList.add("hidden"));
+  await page.click("#fleet [data-fm='parks-egdb'][data-fx='baseline']");
+  const parks = await page.evaluate(() => { const g = window.simservo; g.tick(); g.tick(); document.querySelector("#btn-scan").click(); return g.findings.find((f) => f.code === "FLT001" && f.evidence.instance === "parks-egdb"); });
+  console.log("parks after baseline:", parks.severity, parks.evidence.codes.join(","));
+  if (parks.evidence.codes.includes("INV002")) fail("baseline did not close public access on parks-egdb");
+  if (process.env.SHOTS) { await page.evaluate(() => document.getElementById("modal").classList.add("hidden")); await page.screenshot({ path: "test-results/fleet.png" }); }
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

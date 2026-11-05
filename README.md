@@ -78,6 +78,13 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   grows, and the cutover (stop writes, promote, re-point the data stores, add a reader) is
   timed against the client. After promotion the real `rdsops compat --platform aurora`
   checks the cluster.
+- **Fleet Command**, after The Takeover. The client's RDS test instance is yours, and six
+  more sites (all made up) arrive a few game days apart, each with inherited problems:
+  public endpoints, one-day backups, no encryption, untagged releases, drifted minors. The
+  real `rdsops fleet` scores every instance across Regions, GovCloud included, with the
+  same posture and Esri checks as inventory and compat plus fleet-wide drift. Fixes per
+  site: the Terraform baseline, a patch to the certified minor, a release tag, Multi-AZ,
+  or encryption by snapshot copy. Sites pay while under contract; failing ones cost.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -111,10 +118,11 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | Test | What it proves |
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; all eight fleet instances run through the real rdsops fleet; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, a fleet site arrives and a baseline fix through the panel changes what rdsops fleet reports, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tests/campaign.test.mjs` | The expansion end to end: unlock at 12, Esri's order and backup rule enforced, components unavailable while upgrading, chapters, finale |
 | `tests/takeover.test.mjs` | Expansion 2 end to end: waits for the 12.1 Upgrade, GovCloud facts, the version arriving in the Region, AWS's order (no promotion while writing or lagging), the finale |
+| `tests/fleet.test.mjs` | The fleet opens after the takeover, six sites arrive on schedule, fixes change the facts, GovCloud ARNs |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

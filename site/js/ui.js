@@ -8,6 +8,7 @@ import { TUTORIALS } from "./tutorials.js";
 import { TERMS, annotate, lookup } from "./glossary.js";
 import { CHAPTERS, STEPS, available, backupFresh } from "./campaign.js";
 import * as TK from "./takeover.js";
+import { FIXES } from "./fleet.js";
 
 // Native SVG hover title from the glossary, for the network map.
 const svgTitle = (term, extra = "") => `<title>${esc(`${lookup(term).term}: ${lookup(term).def}${extra ? ` ${extra}` : ""}`)}</title>`;
@@ -145,7 +146,7 @@ function renderMap(game) {
 
 function renderFindings(game, handlers) {
   const s = game.s;
-  const list = [...game.findings].sort((a, b) => RANK[a.severity] - RANK[b.severity] || a.code.localeCompare(b.code));
+  const list = [...game.findings].filter((f) => f.code !== "FLT001").sort((a, b) => RANK[a.severity] - RANK[b.severity] || a.code.localeCompare(b.code));
   $("find-summary").textContent = game.summary();
   const pend = $("pending");
   if (s.pending) {
@@ -184,9 +185,40 @@ function renderFindings(game, handlers) {
   $("btn-scan").disabled = false;
 }
 
+function renderFleet(game, handlers) {
+  const s = game.s;
+  const on = Boolean(s.fleet && s.fleet.started != null);
+  $("fleet-h").classList.toggle("hidden", !on);
+  const box = $("fleet");
+  box.classList.toggle("hidden", !on);
+  if (!on) return;
+  const rows = new Map(game.findings.filter((f) => f.code === "FLT001").map((f) => [f.evidence.instance, f]));
+  const total = game.findings.find((f) => f.code === "FLT000");
+  const line = (id, owner, region, m) => {
+    const f = rows.get(id);
+    const sev = f ? f.severity : "INFO";
+    const fixes = m ? Object.entries(FIXES).filter(([, x]) => x.when(m)) : [];
+    return `<li class="fleet-row">
+      <div><span class="mini-sev ${sev}" data-sev="${sev}">${sev}</span> <b>${esc(id)}</b> <span class="dim small">${esc(owner)}, ${esc(region)}</span></div>
+      ${f && f.detail ? `<div class="small dim">${rich(f.detail)}</div>` : ""}
+      ${m && m.work ? `<div class="small">Working: ${rich(FIXES[m.work.id].label)}, ${m.work.until - s.tick}h left</div>` : ""}
+      ${m && !m.work && fixes.length ? `<div class="row wrap">${fixes.map(([fid, x]) => `<button class="btn tiny" data-fm="${esc(m.id)}" data-fx="${fid}" title="${esc(x.command(m))}">${esc(x.label)}${x.hours ? ` (${x.hours}h)` : ""}</button>`).join("")}</div>` : ""}
+    </li>`;
+  };
+  box.innerHTML = `${total ? `<div class="small">${rich(total.title)}</div>` : ""}
+    <div class="small dim">Each site pays while under contract; failing sites cost you. Scored by rdsops fleet.</div>
+    <ul class="fleet-list">
+      ${line(s.instance.identifier, "Your operations center", "us-east-1", null)}
+      ${s.fleet.members.map((m) => line(m.id, m.owner, m.region, m)).join("")}
+    </ul>
+    ${s.fleet.arrived < 6 ? `<div class="small dim">Next site arrives in about ${Math.max(0, s.fleet.nextArrival - s.tick)} hours.</div>` : ""}`;
+  box.querySelectorAll("[data-fm]").forEach((b) => b.addEventListener("click", () => handlers.fleet(b.dataset.fm, b.dataset.fx)));
+}
+
 function renderSide(game, handlers) {
   const s = game.s;
   renderCampaign(game, handlers);
+  renderFleet(game, handlers);
   $("quests").innerHTML = activeQuests(s).slice(0, 4).map((q) => `<li><b>${esc(q.title)}</b><br><span class="small dim">${rich(q.goal)}</span></li>`).join("")
     || `<li class="dim small">All current quests done. More arrive with levels.</li>`;
 

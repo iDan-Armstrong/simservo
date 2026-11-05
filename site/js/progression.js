@@ -49,6 +49,8 @@ export const ACHIEVEMENTS = [
   { id: "by_the_book", title: "By the Book", desc: "Have an upgrade step refused for being out of Esri's order.", hidden: true, test: (s) => (s.counters.outOfOrder || 0) >= 1 },
   { id: "the_takeover", title: "Under New Management", desc: "Finish Expansion 2: move the client to Aurora and take it over.", test: (s) => Boolean(s.takeover && s.takeover.finished) },
   { id: "clean_cutover", title: "Clean Cutover", desc: "Move the client to Aurora with three hours or less of stopped writes.", test: (s) => Boolean(s.takeover && s.takeover.finished && s.takeover.clientDownHours <= 3) },
+  { id: "fleet_commander", title: "Fleet Commander", desc: "Six or more databases under contract, none failing.", hidden: false, test: (s) => Boolean(s.counters.fleetClean6) },
+  { id: "same_page", title: "Same Page", desc: "Four or more databases and no version drift between them.", test: (s) => Boolean(s.counters.fleetNoDrift) },
   { id: "tier_one", title: "Tier One", desc: "Reach level 10.", test: (s) => s.level >= 10 },
   { id: "it_is_real", title: "It Is Real", desc: "See Trollzilla.", hidden: true, test: (s) => (s.counters.trollzilla || 0) >= 1 },
   { id: "trollzilla_survivor", title: "Trollzilla Survivor", desc: "Still standing a week after Trollzilla.", hidden: true, test: (s) => Boolean(s.counters.survivedTrollzilla) },
