@@ -7,6 +7,9 @@ const ok = (st) => st >= 200 && st < 400;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const bad = [];
 const throttled = [];
+// Sites whose bot protection answers 403 to any automated client, whatever the page.
+// Their links are still listed in the output so a person can check them.
+const BOT_WALLED = new Set(["www.cisa.gov"]);
 for (const { url, title } of allLinks()) {
   let status = 0;
   for (let attempt = 0; attempt < 4 && !ok(status); attempt++) {
@@ -20,11 +23,11 @@ for (const { url, title } of allLinks()) {
   }
   console.log(`${status}  ${url}`);
   // 429 means the server answered and is rate limiting this runner, not that the page is gone.
-  if (status === 429) throttled.push(url);
+  if (status === 429 || (status === 403 && BOT_WALLED.has(new URL(url).host))) throttled.push(url);
   else if (!ok(status)) bad.push(`${status} ${url} (${title})`);
   if (url.includes("github.com")) await sleep(1000);
 }
-if (throttled.length) console.warn(`\nRate limited (not counted as broken): ${throttled.join(", ")}`);
+if (throttled.length) console.warn(`\nRate limited or bot-walled (not counted as broken): ${throttled.join(", ")}`);
 if (bad.length) {
   console.error(`\n${bad.length} broken link(s):\n${bad.join("\n")}`);
   process.exit(1);
