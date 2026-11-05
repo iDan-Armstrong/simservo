@@ -34,6 +34,21 @@ try {
   // intro tutorial: click through all cards
   for (let i = 0; i < 10 && await page.isVisible("#modal:not(.hidden)"); i++) await page.click("#modal-actions .btn.primary");
 
+  // hover help: technical terms in findings carry a glossary tooltip
+  const terms = await page.$$eval("#findings .term", (els) => els.map((e) => e.dataset.term));
+  if (!terms.includes("publicly accessible")) fail(`expected glossary terms in findings, got ${terms.join(",")}`);
+  await page.hover("#findings .finding .term >> nth=0");
+  await page.waitForSelector("#tip:not([hidden])");
+  if (((await page.textContent("#tip")) || "").length < 40) fail("tooltip shows no definition");
+  await page.hover("#findings .code >> nth=0");
+  if (!/Inventory/.test(await page.textContent("#tip"))) fail("finding code tooltip missing");
+  await page.mouse.move(5, 5);
+  await page.click("#btn-glossary");
+  await page.fill("#glossary-q", "WAL");
+  const shown = await page.$$eval("#glossary-list > div:not([hidden]) dt", (els) => els.map((e) => e.textContent));
+  if (!shown.includes("WAL")) fail(`glossary search did not find WAL: ${shown.join(",")}`);
+  await page.click("#modal-actions .btn.primary");
+
   const codes = await page.$$eval("#findings .code", (els) => els.map((e) => e.textContent));
   if (!codes.includes("INV002")) fail(`expected INV002 (public instance) on a new game, got ${codes.join(",")}`);
 
@@ -52,10 +67,8 @@ try {
   if (state.tick < 48) fail("game did not advance");
   if (state.xp <= 0) fail("no XP earned");
   if (!state.quests.includes("q_lock")) fail("quest q_lock not completed");
-  if (process.env.SHOTS) {
-    await page.evaluate(() => { const m = document.getElementById("modal"); m.classList.add("hidden"); });
-    await page.screenshot({ path: "test-results/game.png" });
-  }
+  await page.evaluate(() => { const m = document.getElementById("modal"); m.classList.add("hidden"); }); // level-up cards
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/game.png" });
 
   // ArcGIS Server department through the real egisops server-health
   await page.evaluate(() => { const g = window.simservo; g.s.level = 4; g.s.xp = Math.max(g.s.xp, 600); g.s.pending = null; document.querySelector("#btn-scan").click(); });

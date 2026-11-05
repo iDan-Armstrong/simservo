@@ -54,6 +54,10 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   upgrades, restore drills, then ArcGIS Server, Portal and Data Store administration.
 - An intro tutorial, and a tutorial at each level that adds something, with links to
   the real documentation.
+- Hover help. Technical terms in findings, quests, upgrades, the ops log and tutorials
+  are underlined; hover, focus or tap one for a short definition. Finding codes and
+  severities explain themselves the same way, the network map nodes have titles, and the
+  Glossary button lists every term with a search box.
 - Quests, achievements (some hidden), a budget that pays the AWS bill every hour, and
   uptime that costs you when it slips.
 
@@ -74,9 +78,9 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 
 | Test | What it proves |
 | --- | --- |
-| `npm test` | 100 levels, tutorials and links well formed; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
+| `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
 | `tests/test_bridge.py` | Every finding code the game uses exists in rdsops; every scenario raises the code it teaches through the real evaluators; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, a finding is fixed through the UI, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

@@ -5,9 +5,15 @@ import { actionsFor, UPGRADES } from "./actions.js";
 import { LEVELS, TIERS, features, xpForLevel } from "./levels.js";
 import { ACHIEVEMENTS, activeQuests, uptimePct } from "./progression.js";
 import { TUTORIALS } from "./tutorials.js";
+import { TERMS, annotate, lookup } from "./glossary.js";
+
+// Native SVG hover title from the glossary, for the network map.
+const svgTitle = (term, extra = "") => `<title>${esc(`${lookup(term).term}: ${lookup(term).def}${extra ? ` ${extra}` : ""}`)}</title>`;
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Escaped text with glossary terms marked for hover help. Never use for commands.
+const rich = (t) => annotate(esc(t));
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
 
@@ -54,30 +60,30 @@ function renderMap(game) {
   const svcDown = svcUp < svcs.filter((x) => x.configured === "STARTED").length;
   const svcHot = svcs.some((x) => x.realtime === "STARTED" && x.max && x.busy >= x.max);
   const standby = inst.multiAz
-    ? `<g><rect x="300" y="250" width="100" height="56" rx="8" fill="#120a2a" stroke="var(--cyan)" stroke-dasharray="4 3"/>
+    ? `<g>${svgTitle("Multi-AZ")}<rect x="300" y="250" width="100" height="56" rx="8" fill="#120a2a" stroke="var(--cyan)" stroke-dasharray="4 3"/>
        <text x="350" y="274" fill="var(--cyan)" font-size="11" text-anchor="middle">standby</text>
        <text x="350" y="290" fill="var(--dim)" font-size="10" text-anchor="middle">us-east-1b</text>
        <line x1="300" y1="240" x2="330" y2="250" stroke="var(--cyan)" stroke-dasharray="3 3"/></g>`
     : "";
   const slots = s.db.slots.map((x, i) =>
-    `<g><line x1="290" y1="${215 + i * 10}" x2="400" y2="${190 + i * 10}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="2 4"/>
+    `<g>${svgTitle("replication slot")}<line x1="290" y1="${215 + i * 10}" x2="400" y2="${190 + i * 10}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="2 4"/>
      <text x="402" y="${192 + i * 10}" fill="var(--warn)" font-size="9" text-anchor="end">${esc(x.name)}</text></g>`).join("");
   $("netmap").innerHTML = `
     <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--dim)"/></marker></defs>
     <rect x="10" y="10" width="400" height="310" rx="14" fill="none" stroke="var(--line)" stroke-dasharray="6 4"/>
     <text x="22" y="30" fill="var(--dim)" font-size="10">VPC  egdb-lab  us-east-1</text>
-    <g><ellipse cx="70" cy="80" rx="48" ry="26" fill="#120a2a" stroke="var(--dim)"/><text x="70" y="84" fill="var(--ink)" font-size="11" text-anchor="middle">internet</text></g>
-    <g><path d="M160 58 l24 8 v18 c0 14 -12 22 -24 26 c-12 -4 -24 -12 -24 -26 v-18 z" fill="#120a2a" stroke="${shield}" stroke-width="2"/>
+    <g>${svgTitle("VPC", "Traffic from the internet reaches the database only if the instance is publicly accessible.")}<ellipse cx="70" cy="80" rx="48" ry="26" fill="#120a2a" stroke="var(--dim)"/><text x="70" y="84" fill="var(--ink)" font-size="11" text-anchor="middle">internet</text></g>
+    <g>${svgTitle("security group")}<path d="M160 58 l24 8 v18 c0 14 -12 22 -24 26 c-12 -4 -24 -12 -24 -26 v-18 z" fill="#120a2a" stroke="${shield}" stroke-width="2"/>
        <text x="160" y="122" fill="${shield}" font-size="10" text-anchor="middle">${inst.public ? "PUBLIC" : "private"}</text></g>
     <line x1="118" y1="80" x2="134" y2="80" stroke="var(--dim)" marker-end="url(#arr)"/>
-    <g><rect x="230" y="44" width="150" height="78" rx="8" fill="#120a2a" stroke="${agsColor}" stroke-width="${agsUp ? 1 : 2}"/>
+    <g>${svgTitle("ArcGIS Server")}<rect x="230" y="44" width="150" height="78" rx="8" fill="#120a2a" stroke="${agsColor}" stroke-width="${agsUp ? 1 : 2}"/>
        <text x="305" y="64" fill="${agsColor}" font-size="11" text-anchor="middle">ArcGIS Server ${esc(ags.version)}</text>
        <text x="305" y="80" fill="${machinesUp === ags.machines.length ? "var(--dim)" : "var(--fail)"}" font-size="10" text-anchor="middle">${machinesUp}/${ags.machines.length} machine${ags.machines.length > 1 ? "s" : ""} up${ags.licensed ? "" : "  UNLICENSED"}</text>
        <text x="305" y="95" fill="${ags.cert.trusted ? "var(--ok)" : "var(--warn)"}" font-size="10" text-anchor="middle">${ags.cert.trusted ? "trusted TLS" : "self-signed TLS"}</text>
        <text x="305" y="110" fill="${svcDown ? "var(--fail)" : storm || svcHot ? "var(--warn)" : "var(--dim)"}" font-size="10" text-anchor="middle">${svcUp}/${svcs.length} services${svcHot ? ", pool maxed" : storm ? ", LOAD SPIKE" : ""}</text></g>
     <line x1="186" y1="80" x2="228" y2="80" stroke="var(--dim)" marker-end="url(#arr)"/>
     <line x1="305" y1="124" x2="230" y2="168" stroke="var(--dim)" marker-end="url(#arr)"/>
-    <g class="${down ? "pulse" : ""}"><rect x="110" y="170" width="180" height="78" rx="10" fill="#120a2a" stroke="${color}" stroke-width="2"/>
+    <g class="${down ? "pulse" : ""}">${svgTitle("Amazon RDS", "This instance holds the enterprise geodatabase.")}<rect x="110" y="170" width="180" height="78" rx="10" fill="#120a2a" stroke="${color}" stroke-width="2"/>
        <text x="200" y="194" fill="${color}" font-size="12" text-anchor="middle">${esc(inst.identifier)}</text>
        <text x="200" y="211" fill="var(--ink)" font-size="10" text-anchor="middle">PostgreSQL ${esc(inst.engineVersion)} / PostGIS ${esc(inst.postgis)}</text>
        <text x="200" y="226" fill="var(--dim)" font-size="10" text-anchor="middle">${esc(inst.cls)} ${inst.multiAz ? "Multi-AZ" : "single-AZ"}</text>
@@ -122,12 +128,12 @@ function renderFindings(game, handlers) {
     li.className = `finding ${f.severity}${openKey === key ? " open" : ""}`;
     const acts = actionsFor(f, s);
     li.innerHTML = `
-      <div class="top"><span class="sev ${f.severity}">${f.severity}</span><span class="code">${esc(f.code)}</span><span>${esc(f.title)}</span></div>
+      <div class="top"><span class="sev ${f.severity}" data-sev="${f.severity}">${f.severity}</span><span class="code" data-code="${esc(f.code)}">${esc(f.code)}</span><span>${rich(f.title)}</span></div>
       <div class="detail">
-        ${f.detail ? `<div>${esc(f.detail).replace(/\n/g, "<br>")}</div>` : ""}
+        ${f.detail ? `<div>${rich(f.detail).replace(/\n/g, "<br>")}</div>` : ""}
         <div class="small dim">source: rdsops ${esc(f.source)}</div>
         ${f.severity !== "OK" && acts.length ? `<div class="act">${acts.map((a, j) => `
-          <button class="btn" data-f="${i}" data-a="${a.id}" ${game.busy() ? "disabled" : ""}>${esc(a.label)}${a.hours ? ` <span class="dim">(${a.hours}h)</span>` : ""}</button>
+          <button class="btn" data-f="${i}" data-a="${a.id}" ${game.busy() ? "disabled" : ""}>${rich(a.label)}${a.hours ? ` <span class="dim">(${a.hours}h)</span>` : ""}</button>
           <code class="cmd">${esc(a.command(f, s))}</code>`).join("")}</div>` : ""}
       </div>`;
     li.addEventListener("click", (e) => {
@@ -147,7 +153,7 @@ function renderFindings(game, handlers) {
 
 function renderSide(game, handlers) {
   const s = game.s;
-  $("quests").innerHTML = activeQuests(s).slice(0, 4).map((q) => `<li><b>${esc(q.title)}</b><br><span class="small dim">${esc(q.goal)}</span></li>`).join("")
+  $("quests").innerHTML = activeQuests(s).slice(0, 4).map((q) => `<li><b>${esc(q.title)}</b><br><span class="small dim">${rich(q.goal)}</span></li>`).join("")
     || `<li class="dim small">All current quests done. More arrive with levels.</li>`;
 
   const shopOn = features(s.level).shop;
@@ -155,8 +161,8 @@ function renderSide(game, handlers) {
   $("shop").classList.toggle("hidden", !shopOn);
   if (shopOn) {
     $("shop").innerHTML = UPGRADES.filter((u) => s.level >= u.minLevel).map((u) => u.has(s)
-      ? `<li><span>${esc(u.label)}</span><span class="owned">owned</span></li>`
-      : `<li><span>${esc(u.label)}</span><button class="btn tiny" data-up="${u.id}" ${game.busy() ? "disabled" : ""}>Do it</button></li>`).join("");
+      ? `<li><span>${rich(u.label)}</span><span class="owned">owned</span></li>`
+      : `<li><span>${rich(u.label)}</span><button class="btn tiny" data-up="${u.id}" ${game.busy() ? "disabled" : ""}>Do it</button></li>`).join("");
     $("shop").querySelectorAll("button[data-up]").forEach((b) => b.addEventListener("click", () => handlers.upgrade(b.dataset.up)));
   }
 
@@ -189,7 +195,7 @@ function renderOps(game, handlers) {
       ${f.snapshotDrills ? `<button class="btn tiny" data-drill="snapshot" ${busy}>Snapshot drill</button>` : ""}
     </div>
     ${last ? `<div class="small dim">Last drill ${last.ran ? "" : "(plan only) "}D${Math.floor(last.tick / 24) + 1}:</div>
-      <ul>${last.findings.filter((x) => x.severity !== "INFO").map((x) => `<li title="${esc(x.detail)}"><span class="mini-sev ${x.severity}">${x.severity}</span>${esc(x.code)} ${esc(x.title)}</li>`).join("")}</ul>` : `<div class="small dim">No drills yet. It is D${day} ${String(hour).padStart(2, "0")}:00; do you know your backups work?</div>`}`;
+      <ul>${last.findings.filter((x) => x.severity !== "INFO").map((x) => `<li title="${esc(x.detail)}"><span class="mini-sev ${x.severity}" data-sev="${x.severity}">${x.severity}</span><span data-code="${esc(x.code)}">${esc(x.code)}</span> ${rich(x.title)}</li>`).join("")}</ul>` : `<div class="small dim">No drills yet. It is D${day} ${String(hour).padStart(2, "0")}:00; do you know your backups work?</div>`}`;
   box.querySelectorAll("[data-drill]").forEach((b) => b.addEventListener("click", () => handlers.drill(b.dataset.drill)));
   box.querySelectorAll("[data-recover]").forEach((b) => b.addEventListener("click", () => handlers.recover(b.dataset.recover)));
 }
@@ -198,7 +204,8 @@ export function appendLog(line) {
   const ol = $("log");
   const li = document.createElement("li");
   li.className = line.kind || "";
-  li.innerHTML = `<span class="stamp">${esc(line.stamp)}</span>${esc(line.text)}`;
+  const body = line.kind === "action" ? esc(line.text) : rich(line.text);
+  li.innerHTML = `<span class="stamp">${esc(line.stamp)}</span>${body}`;
   ol.appendChild(li);
   while (ol.children.length > 300) ol.removeChild(ol.firstChild);
   ol.scrollTop = ol.scrollHeight;
@@ -245,7 +252,7 @@ export async function showTutorial(id) {
     const last = i === t.cards.length - 1;
     const go = await modal({
       title: t.title,
-      html: `<h4>${esc(c.heading)}</h4><p>${esc(c.body)}</p>${links}`,
+      html: `<h4>${esc(c.heading)}</h4><p>${rich(c.body)}</p>${links}`,
       actions: [{ html: dots }, ...(i > 0 ? [{ label: "Back", value: "back" }] : []), { label: last ? "Got it" : "Next", value: "next", primary: true }],
     });
     if (go === "back") i -= 2;
@@ -254,7 +261,27 @@ export async function showTutorial(id) {
 
 export function careerHtml(s) {
   const cells = LEVELS.map((l) => `<div class="${l.n < s.level ? "done" : l.n === s.level ? "now" : ""} ${l.playable ? "" : "planned"}" title="${l.n}. ${esc(l.title)} (${esc(l.tierName)})">${l.n}</div>`).join("");
-  const tiers = TIERS.map((t) => `<li><b>Tier ${t.tier}: ${esc(t.name)}</b> <span class="dim">${esc(t.subject)}. ${t.status === "playable" ? "Playable now." : "Planned."} Real tool: ${esc(t.tool)}.</span></li>`).join("");
+  const tiers = TIERS.map((t) => `<li><b>Tier ${t.tier}: ${esc(t.name)}</b> <span class="dim">${rich(t.subject)}. ${t.status === "playable" ? "Playable now." : "Planned."} Real tool: ${esc(t.tool)}.</span></li>`).join("");
   return `<p>100 levels in ten tiers. Each tier is backed by a real administration tool; tiers open as those tools are built.</p>
     <div class="career">${cells}</div><ul>${tiers}</ul>`;
+}
+
+export function glossaryHtml() {
+  const items = [...TERMS].sort((a, b) => a.term.localeCompare(b.term, "en", { sensitivity: "base" }));
+  return `<div class="glossary">
+    <input class="glossary-search" id="glossary-q" placeholder="Search ${items.length} terms" aria-label="Search the glossary">
+    <dl id="glossary-list">${items.map((t) => `<div data-g="${esc((t.term + " " + (t.also || []).join(" ")).toLowerCase())}"><dt>${esc(t.term)}</dt><dd>${esc(t.def)}</dd></div>`).join("")}</dl>
+  </div>`;
+}
+
+export function wireGlossarySearch() {
+  const q = document.getElementById("glossary-q");
+  if (!q) return;
+  q.addEventListener("input", () => {
+    const v = q.value.trim().toLowerCase();
+    document.querySelectorAll("#glossary-list > div").forEach((d) => {
+      d.hidden = Boolean(v) && !d.dataset.g.includes(v) && !d.textContent.toLowerCase().includes(v);
+    });
+  });
+  q.focus();
 }

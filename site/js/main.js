@@ -5,7 +5,8 @@ import { Game } from "./game.js";
 import { newGame } from "./engine.js";
 import { UPGRADES, ACTIONS } from "./actions.js";
 import { LEVELS } from "./levels.js";
-import { appendLog, careerHtml, modal, renderAll, showTutorial, toast } from "./ui.js";
+import { appendLog, careerHtml, glossaryHtml, modal, renderAll, showTutorial, toast, wireGlossarySearch } from "./ui.js";
+import { installTooltips } from "./tooltip.js";
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -184,6 +185,8 @@ const handlers = {
   },
 };
 
+installTooltips();
+
 async function start() {
   const { engine, callsign, save } = await runWizard();
   const resume = save && save.callsign === callsign && !params.has("new");
@@ -204,6 +207,11 @@ async function start() {
   document.querySelectorAll("[data-speed]").forEach((b) => b.addEventListener("click", () => setSpeed(Number(b.dataset.speed))));
   $("btn-scan").addEventListener("click", () => { game.manualScan(); drain(); renderAll(game, handlers); });
   $("btn-help").addEventListener("click", () => withPause(() => showTutorial("intro")));
+  $("btn-glossary").addEventListener("click", () => withPause(() => {
+    const shown = modal({ title: "Glossary", html: glossaryHtml(), actions: [{ label: "Close", value: 1, primary: true }] });
+    wireGlossarySearch();
+    return shown;
+  }));
   $("btn-career").addEventListener("click", () => withPause(() => modal({ title: "Career path", html: careerHtml(game.s), actions: [{ label: "Close", value: 1, primary: true }] })));
   if (!resume && !params.has("skipintro")) await showTutorial("intro");
   setSpeed(Number(params.get("speed") ?? 1));
