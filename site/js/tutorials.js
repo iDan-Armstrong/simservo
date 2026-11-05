@@ -52,6 +52,9 @@ export const LINKS = {
   esriPortalHa: { title: "Esri: Configuring a highly available portal", url: "https://enterprise.arcgis.com/en/portal/11.4/administer/windows/configuring-a-highly-available-portal.htm" },
   esriDsValidate: { title: "Esri REST: Validate (ArcGIS Data Store)", url: "https://developers.arcgis.com/rest/enterprise-administration/server/validatedatastore/" },
   esriDsUtilities: { title: "Esri: ArcGIS Data Store utility reference (backupdatastore, describedatastore)", url: "https://enterprise.arcgis.com/en/data-store/11.5/install/windows/data-store-utility-reference.htm" },
+  esriUpgrade: { title: "Esri: Upgrade ArcGIS Enterprise (paths, order, retired features)", url: "https://doc.esri.com/en/arcgis-enterprise/latest/deploy/upgrade-arcgis-enterprise.html" },
+  esriUpgradeDs: { title: "Esri: Upgrade ArcGIS Data Store", url: "https://doc.esri.com/en/arcgis-enterprise/latest/deploy/upgrade-data-store.html" },
+  egisopsAdr7: { title: "ADR 0007: stack-compat uses rdsops for the database", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0007-stack-compat-uses-rdsops.md" },
   esriWgBackup: { title: "Esri: Create an ArcGIS Enterprise backup", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/create-web-gis-backup.html" },
   esriWgProps: { title: "Esri: WebGISDR tool properties file", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/populate-webgisdr-tool-properties-file.html" },
   esriWgOutput: { title: "Esri: WebGISDR tool output file", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/webgisdr-tool-output-file.html" },
@@ -299,6 +302,60 @@ TUTORIALS["level-11"] = {
       heading: "Schedule it, then watch it",
       body: "Run one export now, then schedule it nightly. Backups that depend on a scheduled task stop without an error when someone disables the task, so the age of the newest backup is the number to watch. Map caches and referenced data are not in the file; back those up too.",
       links: L("esriWgOverview"),
+    },
+  ],
+};
+
+TUTORIALS["level-12"] = {
+  title: "Expansion: The 12.1 Upgrade",
+  cards: [
+    {
+      heading: "What the site really runs",
+      body: "Until now the compat scan checked your database against ArcGIS Enterprise 12.1, the release in the project plan. The real egisops stack-compat now reads what Portal, the hosting server and ArcGIS Data Store actually run: 11.5. And the database team moved RDS to PostgreSQL 17 for that 12.1 project. ArcGIS Enterprise 11.5 does not support PostgreSQL 17.",
+      links: L("egisops", "egisopsAdr7", "esriPg"),
+    },
+    {
+      heading: "The fix is the upgrade",
+      body: "Rolling the database back is not on the table. The way out is to finish the job: upgrade the whole deployment to 12.1, which supports PostgreSQL 17. The Expansion panel tracks the campaign. Chapter one is preparation: Esri says to take a backup before upgrading any component, and to move off features retired at 12.0, like Web AppBuilder, while still on 11.5.",
+      links: L("esriUpgrade"),
+    },
+    {
+      heading: "Order matters",
+      body: "Esri's order is Portal, the hosting server, then ArcGIS Data Store. While they are on different releases, stack-compat fails, because all base components must run the same version. Each step takes its component down for a few hours, and its usual fixes wait until the upgrade finishes. Pick your hours.",
+      links: L("esriUpgrade", "esriUpgradeDs"),
+    },
+  ],
+};
+
+TUTORIALS["expansion-2"] = {
+  title: "Chapter 2: Upgrade in order",
+  cards: [
+    {
+      heading: "Backup taken, retired apps gone",
+      body: "You can now upgrade. Start with Portal for ArcGIS. When it is done, stack-compat will fail: Portal on 12.1, everything else on 11.5. That is expected until the last component is upgraded.",
+      links: L("esriUpgrade"),
+    },
+  ],
+};
+
+TUTORIALS["expansion-3"] = {
+  title: "Chapter 3: Finish",
+  cards: [
+    {
+      heading: "One release again",
+      body: "Portal, the hosting server and ArcGIS Data Store are on 12.1, and PostgreSQL 17 is supported again. One thing is left: ArcGIS Pro 3.5 is not the companion of 12.1. Roll out Pro 3.7, then scan. The expansion ends when stack-compat has nothing to warn about.",
+      links: L("esriUpgrade"),
+    },
+  ],
+};
+
+TUTORIALS["expansion-finale"] = {
+  title: "Expansion complete: ArcGIS Enterprise 12.1",
+  cards: [
+    {
+      heading: "Twelve One",
+      body: "The whole stack runs 12.1 on a supported database, and you did it in Esri's order with a backup in hand. Next on the horizon: a full move and migration.",
+      links: L("esriUpgrade", "egisops"),
     },
   ],
 };

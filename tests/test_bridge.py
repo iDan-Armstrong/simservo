@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -52,7 +52,7 @@ def test_fresh_game_findings_come_from_rdsops(catalog):
     assert by_code["INV002"]["severity"] == "FAIL"  # the game starts with a public instance
     assert {f["source"] for f in findings} == {
         "inventory", "server-health", "services", "logs", "portal-health", "datastore",
-        "backup-check", "health", "maintenance", "compat"}
+        "backup-check", "stack-compat", "health", "maintenance", "compat"}
     assert by_code["SRV006"]["severity"] == "WARN"  # fresh installs ship a self-signed certificate
     # one portal machine and one data store machine: worth knowing, not broken
     assert by_code["PTL003"]["severity"] == "INFO" and "PTL007" not in by_code
@@ -124,3 +124,27 @@ def test_data_store_failover_keeps_hosted_layers_up(catalog):
 def test_backup_check_never_echoes_the_game_password(catalog):
     text = json.dumps(evaluate(catalog["fresh"]))
     assert "plain-text-in-game" not in text
+
+
+def _stack_findings(snapshot):
+    return [f for f in evaluate(snapshot) if f["source"] == "stack-compat"]
+
+
+def test_expansion_reveal_and_finish_through_real_stack_compat(catalog):
+    snap = json.loads(json.dumps(catalog["fresh"]))
+    st = snap["stack"]
+    # the reveal: the site is 11.5 and the database is PostgreSQL 17 (rdsops inside stack-compat)
+    sev = {f["code"]: f["severity"] for f in _stack_findings(snap)}
+    assert sev["STK001"] == "OK" and sev["CMP001"] == "FAIL"
+    assert sev["STK005"] in ("INFO", "WARN")  # the 11.5 to 12.1 plan
+    # the planning-only compat scan said the same database is fine for 12.1
+    assert {f["code"]: f["severity"] for f in evaluate(snap) if f["source"] == "compat"}["CMP001"] == "OK"
+    # mid-upgrade: Portal on 12.1, the rest on 11.5
+    st["components"][0]["version"] = "12.1.0"
+    assert {f["code"]: f["severity"] for f in _stack_findings(snap)}["STK001"] == "FAIL"
+    # finished: everything on 12.1, Pro 3.7, no target
+    for c in st["components"]:
+        c["version"] = "12.1.0"
+    st["pro_version"], st["target"] = "3.7", None
+    worst = max(RANK[f["severity"]] for f in _stack_findings(snap))
+    assert worst <= RANK["INFO"], _stack_findings(snap)

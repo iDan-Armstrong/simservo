@@ -8,9 +8,17 @@ import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
 import { addMachine, enterpriseTick, ensureSite, siteTick, webgisdrTick } from "./arcgis.js";
+import { STEPS, campaignTick, checkFinale, ensureCampaign, startStep } from "./campaign.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
+
+// While a component is being upgraded, its "start it" fixes would interrupt the upgrade.
+const UPGRADING = {
+  upgrade_portal: ["PTL001", "PTL003"],
+  upgrade_server: ["SRV001", "SRV003", "SVC001", "PTL008"],
+  upgrade_datastore: ["DST001", "DST002", "PTL008"],
+};
 
 export function incidentKey(f) {
   const e = f.evidence || {};
@@ -22,7 +30,7 @@ export function incidentKey(f) {
 
 export function sourcesFor(level) {
   const f = features(level);
-  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.portal && "portal-health", f.datastore && "datastore", f.backups && "backup-check", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
+  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.portal && "portal-health", f.datastore && "datastore", f.backups && "backup-check", f.maintenance && "maintenance", f.compat && !f.stack && "compat", f.stack && "stack-compat"].filter(Boolean));
 }
 
 export class Game {
@@ -32,6 +40,7 @@ export class Game {
     this.s = state || newGame(seed);
     ensureBackupState(this.s);
     ensureSite(this.s);
+    { const c = ensureCampaign(this.s); if (features(this.s.level).stack && c.started == null) c.started = this.s.tick; }
     this.rules = rules || { evaluate };
     this.evaluate = this.rules.evaluate;
     this.rand = rng((this.s.seed * 7919 + this.s.tick) >>> 0);
@@ -65,6 +74,7 @@ export class Game {
     { const { hour, weekday } = clock(s.tick); siteTick(s, (e) => this.log(e), businessLoad(hour, weekday) + (s.db.extraConnections > 0 ? 0.6 : 0), this.rand); }
     enterpriseTick(s);
     if (features(s.level).backups) webgisdrTick(s, (e) => this.log(e));
+    for (const e of campaignTick(s, (x) => this.log(x))) this.emit("campaign", e);
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -122,6 +132,10 @@ export class Game {
     const logs = this.findings.find((x) => x.code === "LOG001");
     if (logs && logs.severity === "OK" && s.tick >= 24) s.counters.quietLogs = true;
     if (this.findings.some((x) => x.code === "PTL008" && x.severity === "OK")) s.counters.federationOk = true;
+    if (checkFinale(s, this.findings)) {
+      this.award(XP.expansion, "Expansion complete: The 12.1 Upgrade");
+      this.emit("campaign", { finale: true });
+    }
     if (s.level >= 3 && !problems.length && !isDown(s)) s.counters.cleanScan = true;
     this.progress();
   }
@@ -177,6 +191,10 @@ export class Game {
       const from = s.level;
       s.level = lvl;
       if (features(lvl).secondMachine) addMachine(s);
+      if (features(lvl).stack) {
+        const c = ensureCampaign(s);
+        if (c.started == null) { c.started = s.tick; this.log({ kind: "level", text: "Expansion unlocked: The 12.1 Upgrade." }); }
+      }
       this.log({ kind: "level", text: `Level ${lvl}!` });
       this.emit("level", { from, to: lvl });
     }
@@ -187,9 +205,17 @@ export class Game {
     return Boolean(this.s.pending);
   }
 
+  campaignAct(id) {
+    const r = startStep(this.s, id, (e) => this.log(e));
+    if (r.ok) this.scan({ manual: false });
+    return r;
+  }
+
   act(finding, actionId) {
     const s = this.s;
     if (this.busy()) return { ok: false, reason: "Already working on something." };
+    const work = s.campaign && s.campaign.work;
+    if (work && (UPGRADING[work.id] || []).includes(finding.code)) return { ok: false, reason: `${STEPS[work.id].label} is in progress; it comes back when the upgrade finishes.` };
     const action = (ACTIONS[finding.code] || []).find((a) => a.id === actionId);
     if (!action) return { ok: false, reason: "No such action." };
     if (s.budget < action.cost) return { ok: false, reason: "Not enough budget." };

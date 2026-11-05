@@ -61,6 +61,13 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   no schedule. Scenarios disable the nightly task, fill the backup share, "fix" the doubled
   backslashes in the paths, and rotate the portal password back into plain text. Backups
   can move to S3 with an IAM role.
+- **Expansion 1, The 12.1 Upgrade**, from level 12. The real `egisops stack-compat` (with
+  rdsops `compat` inside it) reads what the site actually runs: 11.5, on a database the team
+  already moved to PostgreSQL 17, which 11.5 does not support. The way out is Esri's upgrade:
+  a fresh WebGISDR backup and Web AppBuilder apps rebuilt first, then Portal, the hosting
+  server and ArcGIS Data Store in order (each down for hours, with stack-compat failing while
+  releases are mixed and out-of-order steps refused with Esri's reason), then ArcGIS Pro to
+  its companion version. The campaign ends when stack-compat has nothing to warn about.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -95,7 +102,8 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
 | `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/campaign.test.mjs` | The expansion end to end: unlock at 12, Esri's order and backup rule enforced, components unavailable while upgrading, chapters, finale |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

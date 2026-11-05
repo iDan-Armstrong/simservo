@@ -5,7 +5,7 @@
 export const TIERS = [
   { tier: 1, name: "Fundamentals", subject: "Your first RDS geodatabase", tool: "rdsops inventory, health, maintenance", status: "playable" },
   { tier: 2, name: "Monitoring and Maintenance", subject: "Keeping the database healthy week to week", tool: "rdsops health, maintenance", status: "planned" },
-  { tier: 3, name: "Versions and Upgrades", subject: "Esri support matrix, minor patches, blue/green majors", tool: "rdsops compat, upgrade-plan", status: "planned" },
+  { tier: 3, name: "Versions and Upgrades", subject: "Esri support matrix, minor patches, blue/green majors, ArcGIS Enterprise upgrades", tool: "rdsops compat, upgrade-plan, egisops stack-compat", status: "planned" },
   { tier: 4, name: "Backup and Restore", subject: "Snapshots, point-in-time restore, timed drills, WebGISDR", tool: "rdsops restore-drill, egisops backup-check", status: "playable" },
   { tier: 5, name: "ArcGIS Server", subject: "Sites, services, pools, logs", tool: "egisops server-health", status: "playable" },
   { tier: 6, name: "Portal and Federation", subject: "Portal for ArcGIS, federation, licenses, search", tool: "egisops portal-health", status: "playable" },
@@ -74,6 +74,7 @@ const UNLOCKS = {
   9: ["Portal for ArcGIS health scan (egisops portal-health)", "Second portal machine in the shop", "Faster scenario rate"],
   10: ["ArcGIS Data Store validation (egisops datastore)", "Data Store standby machine in the shop", "Rare events. Something large is out there."],
   11: ["Site backups with WebGISDR (egisops backup-check)", "S3 backup storage in the shop"],
+  12: ["Expansion: The 12.1 Upgrade", "Stack compatibility (egisops stack-compat) replaces the planning-only compat scan"],
   31: ["Snapshot-mode drills", "Tighter recovery target: 30 minutes"],
   41: ["A second ArcGIS Server machine joins the site", "Certificate and license renewals on a schedule"],
 };
@@ -105,6 +106,7 @@ export function features(level) {
     portal: level >= 9,
     datastore: level >= 10,
     backups: level >= 11,
+    stack: level >= 12,
     services: level >= 5,
     secondMachine: level >= 41,
     drills: level >= 6,

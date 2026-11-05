@@ -214,3 +214,15 @@ a { color: var(--cyan); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* expansion campaign */
+.expansion-h { color: var(--pink, #ff4fd8); }
+.campaign { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 10px; }
+.campaign .camp-title { font-family: "Press Start 2P", monospace; font-size: 10px; color: var(--warn); margin-bottom: 6px; }
+.campaign .versions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; font-size: 11px; }
+.campaign .versions span { border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.campaign .versions .ok { color: var(--ok); border-color: var(--ok); }
+.campaign .versions .old { color: var(--dim); }
+.campaign .col { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.campaign .col .btn { text-align: left; }
+.campaign .col .btn.done { color: var(--ok); border-color: var(--ok); opacity: 0.8; }

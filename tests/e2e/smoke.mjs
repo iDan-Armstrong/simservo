@@ -148,6 +148,33 @@ try {
   if (!bakAfter.includes("BAK010 OK") || !bakAfter.includes("BAK011 OK") || bakAfter.some((c) => c.startsWith("BAK004"))) fail(`export did not produce a scored backup: ${bakAfter}`);
   if (process.env.SHOTS) await page.screenshot({ path: "test-results/backups.png" });
 
+  // Expansion: The 12.1 Upgrade, through the real stack-compat (with rdsops compat inside)
+  await page.evaluate(() => { const g = window.simservo; g.s.xp = Math.max(g.s.xp, 6500); g.s.pending = null; g.progress(); document.querySelector("#btn-scan").click(); });
+  await page.evaluate(() => document.getElementById("modal").classList.add("hidden"));
+  const reveal = await page.evaluate(() => window.simservo.findings.filter((f) => f.source === "stack-compat").map((f) => `${f.code} ${f.severity}`));
+  console.log("stack-compat:", reveal.join(", "));
+  if (!reveal.includes("CMP001 FAIL")) fail("stack-compat should find PostgreSQL 17 unsupported on 11.5");
+  await page.waitForSelector("#camp:not(.hidden) [data-camp='migrate_wab']");
+  await page.evaluate(() => { const g = window.simservo; g.s.arcgis.portal.wabApps = 0; g.s.pending = null; });
+  await page.evaluate(async () => { const { ACTIONS } = await import("./js/actions.js"); ACTIONS.BAK010[0].apply(window.simservo.s); window.simservo.tick(); document.querySelector("#btn-scan").click(); return window.simservo.s.campaign.chapter; });
+  await page.evaluate(() => { for (const id of ["modal"]) document.getElementById(id).classList.add("hidden"); });
+  await page.click("#camp [data-camp='upgrade_portal']");
+  const mixed = await page.evaluate(() => { const g = window.simservo; for (let i = 0; i < 4; i++) g.tick(); document.querySelector("#btn-scan").click(); return g.findings.filter((f) => f.code === "STK001").map((f) => f.severity); });
+  if (mixed[0] !== "FAIL") fail(`portal on 12.1 alone should fail STK001, got ${mixed}`);
+  if (process.env.SHOTS) { await page.evaluate(() => document.getElementById("modal").classList.add("hidden")); await page.screenshot({ path: "test-results/expansion.png" }); }
+  const done = await page.evaluate(() => {
+    const g = window.simservo;
+    for (const [id, h] of [["upgrade_server", 3], ["upgrade_datastore", 3], ["rollout_pro", 6]]) {
+      const r = g.campaignAct(id);
+      if (!r.ok) return `refused ${id}: ${r.reason}`;
+      for (let i = 0; i < h; i++) g.tick();
+    }
+    document.querySelector("#btn-scan").click();
+    return { finished: g.s.campaign.finished, stack: g.findings.filter((f) => f.source === "stack-compat").map((f) => `${f.code} ${f.severity}`) };
+  });
+  console.log("expansion finished:", JSON.stringify(done));
+  if (!done.finished) fail("the expansion did not finish");
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

@@ -6,6 +6,7 @@ import { LEVELS, TIERS, features, xpForLevel } from "./levels.js";
 import { ACHIEVEMENTS, activeQuests, uptimePct } from "./progression.js";
 import { TUTORIALS } from "./tutorials.js";
 import { TERMS, annotate, lookup } from "./glossary.js";
+import { CHAPTERS, STEPS, available, backupFresh } from "./campaign.js";
 
 // Native SVG hover title from the glossary, for the network map.
 const svgTitle = (term, extra = "") => `<title>${esc(`${lookup(term).term}: ${lookup(term).def}${extra ? ` ${extra}` : ""}`)}</title>`;
@@ -14,7 +15,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Escaped text with glossary terms marked for hover help. Never use for commands.
 const rich = (t) => annotate(esc(t));
-const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check"]);
+const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check", "stack-compat"]);
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
 
@@ -183,6 +184,7 @@ function renderFindings(game, handlers) {
 
 function renderSide(game, handlers) {
   const s = game.s;
+  renderCampaign(game, handlers);
   $("quests").innerHTML = activeQuests(s).slice(0, 4).map((q) => `<li><b>${esc(q.title)}</b><br><span class="small dim">${rich(q.goal)}</span></li>`).join("")
     || `<li class="dim small">All current quests done. More arrive with levels.</li>`;
 
@@ -203,6 +205,35 @@ function renderSide(game, handlers) {
   $("ach-count").textContent = `${got.size}/${ACHIEVEMENTS.length}`;
   $("achievements").innerHTML = shown.map((a) => `<li class="badge ${got.has(a.id) ? "got" : ""}" title="${esc(a.title)}: ${esc(a.desc)}">${esc(a.title.split(" ").map((w) => w[0]).join("").slice(0, 2))}</li>`).join("")
     + (got.size < ACHIEVEMENTS.length ? `<li class="badge" title="Hidden achievements remain">?</li>` : "");
+}
+
+function renderCampaign(game, handlers) {
+  const s = game.s;
+  const c = s.campaign;
+  const on = Boolean(c && c.started != null);
+  $("camp-h").classList.toggle("hidden", !on);
+  const box = $("camp");
+  box.classList.toggle("hidden", !on);
+  if (!on) return;
+  const a = s.arcgis;
+  const ver = (v) => (v || "").split(".").slice(0, 2).join(".");
+  const comps = [["Portal", a.portal.version], ["Server", a.version], ["Data Store", a.datastore.release], ["Pro", a.proVersion]];
+  const steps = Object.entries(STEPS).filter(([, x]) => x.chapter === c.chapter || (c.chapter === 3 && x.chapter === 3));
+  const working = c.work ? `<div class="alert">${rich(STEPS[c.work.id].label)}: ${c.work.until - s.tick} hour(s) left.</div>` : "";
+  box.innerHTML = c.finished
+    ? `<div class="camp-title">The 12.1 Upgrade <span class="mini-sev OK">DONE</span></div><div class="small dim">Every component on 12.1, on a supported database.</div>`
+    : `<div class="camp-title">The 12.1 Upgrade</div>
+    <div class="small">Chapter ${c.chapter} of ${CHAPTERS.length}: <b>${esc(CHAPTERS[c.chapter - 1].title)}</b></div>
+    <div class="small dim">${rich(CHAPTERS[c.chapter - 1].goal)}</div>
+    <div class="versions">${comps.map(([n, v]) => `<span class="${ver(v) === "12.1" || v === "3.7" ? "ok" : "old"}">${esc(n)} ${esc(ver(v))}</span>`).join("")}</div>
+    ${c.chapter === 1 ? `<div class="small">Web AppBuilder apps left: ${a.portal.wabApps}. Fresh backup: ${backupFresh(s) ? "yes" : "no"}</div>` : ""}
+    ${working}
+    <div class="col">${steps.map(([id, x]) => {
+      const why = available(s, id);
+      const done = Boolean(why && / already |No Web AppBuilder apps are left/.test(why));
+      return `<button class="btn tiny${done ? " done" : ""}" data-camp="${id}" title="${esc(why || x.command)}" ${c.work || done ? "disabled" : ""}>${done ? "Done: " : ""}${esc(x.label)}${done ? "" : ` (${x.hours}h)`}</button>`;
+    }).join("")}</div>`;
+  box.querySelectorAll("[data-camp]").forEach((b) => b.addEventListener("click", () => handlers.campaign(b.dataset.camp)));
 }
 
 function renderOps(game, handlers) {

@@ -16,6 +16,10 @@ export const TERMS = [
   { term: "web adaptor", def: "A small web application on IIS or Tomcat that receives traffic on the usual web port (443) and passes it to ArcGIS Server or Portal." },
   { term: "Amazon S3", also: ["S3"], def: "AWS object storage. Backups written to an S3 bucket live outside the servers they protect, and an IAM role can grant access without a stored key." },
   { term: "JSON", def: "A plain-text format for structured data. WebGISDR can write its result as JSON, which a script or egisops can read to see what happened." },
+  { term: "Web AppBuilder", def: "Esri's older app builder for web apps. It was retired at ArcGIS Enterprise 12.0, so its apps must be rebuilt before upgrading past 11.5." },
+  { term: "Experience Builder", def: "Esri's current app builder, the replacement for Web AppBuilder. Apps are rebuilt in it from the same maps and layers." },
+  { term: "companion version", also: ["companion"], def: "The ArcGIS Pro release Esri pairs with an ArcGIS Enterprise release, such as Pro 3.7 with Enterprise 12.1. Esri recommends keeping them together." },
+  { term: "upgrade order", def: "Esri's order for upgrading ArcGIS Enterprise: Portal and its Web Adaptor, the hosting server and its Web Adaptor, ArcGIS Data Store, then other federated servers." },
   { term: "properties file", also: ["webgisdr.properties"], def: "The settings file WebGISDR reads: the portal URL and admin account, where backups go, and the backup mode. Backslashes in its paths must be doubled." },
   { term: "webgissite", also: [".webgissite"], def: "The single backup file WebGISDR writes for the whole deployment. Restoring from a folder picks the newest one by last-modified time." },
   { term: "scheduled task", def: "A job the operating system runs on a schedule, such as Windows Task Scheduler or cron. Backups that depend on one stop silently if it is disabled." },
@@ -137,6 +141,7 @@ export const CODES = {
   LOG: "Logs (egisops logs): SEVERE ArcGIS Server log entries grouped by source and code.",
   PTL: "Portal health (egisops portal-health): portal machines, licenses, federation and the search index.",
   DST: "Data Store (egisops datastore): ArcGIS Data Store validation, machines, standby and backups.",
+  STK: "Stack compatibility (egisops stack-compat): Portal, Server, Data Store, the geodatabase and Pro on releases that belong together.",
   BAK: "Site backups (egisops backup-check): the WebGISDR properties file, the newest backup, and the last run.",
 };
 

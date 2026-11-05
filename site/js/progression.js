@@ -2,7 +2,7 @@
 
 import { isDown } from "./engine.js";
 
-export const XP = { FAIL: 40, WARN: 15, quest: 50, scenarioSurvived: 25 };
+export const XP = { FAIL: 40, WARN: 15, quest: 50, scenarioSurvived: 25, expansion: 600 };
 
 const resolvedCodes = (s) => s.counters.resolved || {};
 
@@ -45,6 +45,8 @@ export const ACHIEVEMENTS = [
   { id: "found_it", title: "Found It", desc: "Rebuild the portal search index.", test: (s) => (s.counters.reindexed || 0) >= 1 },
   { id: "back_online", title: "Back Online", desc: "Bring ArcGIS Data Store back after hosted layers went dark.", test: (s) => (s.counters.dataStoreStarts || 0) >= 1 },
   { id: "whole_site", title: "The Whole Site", desc: "Finish five WebGISDR exports.", test: (s) => (s.arcgis && s.arcgis.webgisdr.runs.filter((r) => r.status === "success").length >= 5) || (s.counters.wgExports || 0) >= 5 },
+  { id: "twelve_one", title: "Twelve One", desc: "Finish the expansion: upgrade the whole stack to ArcGIS Enterprise 12.1.", test: (s) => Boolean(s.campaign && s.campaign.finished) },
+  { id: "by_the_book", title: "By the Book", desc: "Have an upgrade step refused for being out of Esri's order.", hidden: true, test: (s) => (s.counters.outOfOrder || 0) >= 1 },
   { id: "tier_one", title: "Tier One", desc: "Reach level 10.", test: (s) => s.level >= 10 },
   { id: "it_is_real", title: "It Is Real", desc: "See Trollzilla.", hidden: true, test: (s) => (s.counters.trollzilla || 0) >= 1 },
   { id: "trollzilla_survivor", title: "Trollzilla Survivor", desc: "Still standing a week after Trollzilla.", hidden: true, test: (s) => Boolean(s.counters.survivedTrollzilla) },
