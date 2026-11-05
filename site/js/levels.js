@@ -4,15 +4,15 @@
 
 export const TIERS = [
   { tier: 1, name: "Fundamentals", subject: "Your first RDS geodatabase", tool: "rdsops inventory, health, maintenance", status: "playable" },
-  { tier: 2, name: "Monitoring and Maintenance", subject: "Keeping the database healthy week to week", tool: "rdsops health, maintenance", status: "planned" },
-  { tier: 3, name: "Versions and Upgrades", subject: "Esri support matrix, minor patches, blue/green majors, ArcGIS Enterprise upgrades", tool: "rdsops compat, upgrade-plan, egisops stack-compat", status: "planned" },
+  { tier: 2, name: "Monitoring and Maintenance", subject: "Keeping the database healthy week to week", tool: "rdsops health, maintenance", status: "playable" },
+  { tier: 3, name: "Versions and Upgrades", subject: "Esri support matrix, minor patches, blue/green majors, ArcGIS Enterprise upgrades", tool: "rdsops compat, egisops stack-compat (Expansion 1)", status: "playable" },
   { tier: 4, name: "Backup and Restore", subject: "Snapshots, point-in-time restore, timed drills, WebGISDR", tool: "rdsops restore-drill, egisops backup-check", status: "playable" },
   { tier: 5, name: "ArcGIS Server", subject: "Sites, services, pools, logs", tool: "egisops server-health", status: "playable" },
   { tier: 6, name: "Portal and Federation", subject: "Portal for ArcGIS, federation, licenses, search", tool: "egisops portal-health", status: "playable" },
   { tier: 7, name: "Data Store and Geodatabases", subject: "ArcGIS Data Store, standby, backups", tool: "egisops datastore", status: "playable" },
   { tier: 8, name: "Security Operations", subject: "Credentials, auditing, certificates, exposure", tool: "planned", status: "planned" },
   { tier: 9, name: "High Availability and DR", subject: "Multi-AZ, cross-region copies, failover drills", tool: "planned", status: "planned" },
-  { tier: 10, name: "Fleet Command", subject: "Many sites, one operations center", tool: "planned", status: "planned" },
+  { tier: 10, name: "Fleet Command", subject: "Many sites, one operations center", tool: "rdsops fleet, aurora-plan (Expansion 2)", status: "playable" },
 ];
 
 const TITLES = [

@@ -38,9 +38,10 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Tier 1 (Fundamentals), Tier 4 (Backup and Restore), Tier 5
-  (ArcGIS Server), Tier 6 (Portal and Federation) and Tier 7 (Data Store) are playable
-  now, because their real tools exist.
+- 100 levels in ten tiers. Eight are playable, because their real tools exist: Fundamentals,
+  Monitoring and Maintenance, Versions and Upgrades, Backup and Restore, ArcGIS Server,
+  Portal and Federation, Data Store, and Fleet Command. Security Operations and High
+  Availability and DR are next.
 - ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
   that do not come back after patch night, and licenses that run out. The real
   `egisops server-health` scores it. From level 5, `egisops services` and `logs` watch the
