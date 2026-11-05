@@ -175,6 +175,32 @@ try {
   console.log("expansion finished:", JSON.stringify(done));
   if (!done.finished) fail("the expansion did not finish");
 
+  // Expansion 2: The Takeover, through the real rdsops aurora-plan and compat --platform aurora
+  await page.evaluate(() => { const g = window.simservo; g.s.xp = Math.max(g.s.xp, 9000); g.s.pending = null; g.progress(); document.querySelector("#btn-scan").click(); document.getElementById("modal").classList.add("hidden"); });
+  const tkFound = await page.evaluate(() => window.simservo.findings.filter((f) => f.source === "aurora-plan").map((f) => `${f.code} ${f.severity}`));
+  console.log("aurora-plan (as found):", tkFound.join(", "));
+  for (const c of ["AUR001 FAIL", "AUR002 FAIL", "AUR003 FAIL", "AUR005 WARN"]) if (!tkFound.includes(c)) fail(`expected ${c} from the real aurora-plan`);
+  await page.waitForSelector("#camp [data-tk='delete_try']");
+  await page.click("#camp [data-tk='delete_try']");
+  const tk = await page.evaluate(async () => {
+    const g = window.simservo;
+    const step = (id, h) => { const r = g.takeoverAct(id); if (!r.ok) throw new Error(`${id}: ${r.reason}`); for (let i = 0; i < h; i++) g.tick(); };
+    for (let i = 0; i < 1; i++) g.tick();
+    step("grow_storage", 1); step("kms_key", 1);
+    const before = g.s.takeover.chapter;
+    for (let i = 0; i < 72; i++) g.tick();
+    document.querySelector("#btn-scan").click();
+    const after = g.s.takeover.chapter;
+    step("create_cluster", 8);
+    const ch3 = g.s.takeover.chapter;
+    step("stop_writes", 0); step("promote", 1); step("repoint", 1); step("start_writes", 0); step("add_reader", 1);
+    document.querySelector("#btn-scan").click();
+    return { before, after, ch3, finished: g.s.takeover.finished, compat: g.findings.filter((f) => f.source === "client-compat").map((f) => `${f.code} ${f.severity}`) };
+  });
+  console.log("takeover:", JSON.stringify(tk));
+  if (tk.before !== 1 || tk.after !== 2 || tk.ch3 !== 3 || !tk.finished) fail(`takeover chapters wrong: ${JSON.stringify(tk)}`);
+  if (process.env.SHOTS) { await page.evaluate(() => document.getElementById("modal").classList.add("hidden")); await page.screenshot({ path: "test-results/takeover.png" }); }
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

@@ -7,6 +7,7 @@ import { ACHIEVEMENTS, activeQuests, uptimePct } from "./progression.js";
 import { TUTORIALS } from "./tutorials.js";
 import { TERMS, annotate, lookup } from "./glossary.js";
 import { CHAPTERS, STEPS, available, backupFresh } from "./campaign.js";
+import * as TK from "./takeover.js";
 
 // Native SVG hover title from the glossary, for the network map.
 const svgTitle = (term, extra = "") => `<title>${esc(`${lookup(term).term}: ${lookup(term).def}${extra ? ` ${extra}` : ""}`)}</title>`;
@@ -15,6 +16,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Escaped text with glossary terms marked for hover help. Never use for commands.
 const rich = (t) => annotate(esc(t));
+const CLIENT_SOURCES = new Set(["aurora-plan", "client-compat"]);
 const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check", "stack-compat"]);
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
@@ -159,7 +161,7 @@ function renderFindings(game, handlers) {
     li.className = `finding ${f.severity}${openKey === key ? " open" : ""}`;
     const acts = actionsFor(f, s);
     li.innerHTML = `
-      <div class="top"><span class="sev ${f.severity}" data-sev="${f.severity}">${f.severity}</span><span class="code" data-code="${esc(f.code)}">${esc(f.code)}</span><span>${rich(f.title)}</span></div>
+      <div class="top"><span class="sev ${f.severity}" data-sev="${f.severity}">${f.severity}</span><span class="code" data-code="${esc(f.code)}">${esc(f.code)}</span>${CLIENT_SOURCES.has(f.source) ? `<span class="client-tag" data-term="Northwind Survey Agency">client</span>` : ""}<span>${rich(f.title)}</span></div>
       <div class="detail">
         ${f.detail ? `<div>${rich(f.detail).replace(/\n/g, "<br>")}</div>` : ""}
         <div class="small dim">source: ${EGISOPS_SOURCES.has(f.source) ? "egisops" : "rdsops"} ${esc(f.source)}</div>
@@ -207,8 +209,44 @@ function renderSide(game, handlers) {
     + (got.size < ACHIEVEMENTS.length ? `<li class="badge" title="Hidden achievements remain">?</li>` : "");
 }
 
+function renderTakeover(game, handlers, box) {
+  const s = game.s;
+  const t = s.takeover;
+  const x = t.client;
+  const cl = x.cluster;
+  const free = TK.freeGb(x.source, cl);
+  const steps = Object.entries(TK.STEPS).filter(([, st]) => st.chapter === t.chapter);
+  box.innerHTML = t.finished
+    ? `<div class="camp-title">The Takeover <span class="mini-sev OK">DONE</span></div><div class="small dim">${esc(x.name)} runs on Aurora and is in your fleet. Writes were stopped for ${t.clientDownHours} hour(s).</div>`
+    : `<div class="camp-title">The Takeover</div>
+    <div class="small">Client: <b>${esc(x.name)}</b>, ${esc(x.region)} (GovCloud)</div>
+    <div class="small">Chapter ${t.chapter} of ${TK.CHAPTERS.length}: <b>${esc(TK.CHAPTERS[t.chapter - 1].title)}</b></div>
+    <div class="small dim">${rich(TK.CHAPTERS[t.chapter - 1].goal)}</div>
+    <div class="versions">
+      <span class="${x.source.retired ? "old" : ""}">RDS ${esc(x.source.engineVersion)}${x.source.retired ? " (retired)" : ""}</span>
+      <span class="${cl ? "ok" : "old"}">Aurora ${cl ? `${esc(cl.version)} ${esc(cl.state)}` : "none"}</span>
+      <span class="${free / x.source.allocatedGb < 0.2 ? "old" : "ok"}">free ${Math.max(0, Math.round(free))} of ${x.source.allocatedGb} GB</span>
+      ${cl && cl.state !== "promoted" ? `<span>lag ${cl.lagGb} GB, WAL ${cl.walGb} GB</span>` : ""}
+      <span class="${x.writes ? "ok" : "old"}">writes ${x.writes ? "on" : "STOPPED"}</span>
+    </div>
+    <div class="small dim">Aurora in ${esc(x.region)}: ${x.regionAurora.map(esc).join(", ")}</div>
+    ${t.work ? `<div class="alert">${rich(TK.STEPS[t.work.id].label)}: ${t.work.until - s.tick} hour(s) left.</div>` : ""}
+    <div class="col">${steps.map(([id, st]) => {
+      const why = TK.available(s, id);
+      const done = Boolean(why && /already|No abandoned|A reader exists|Already done|Services are running/.test(why));
+      return `<button class="btn tiny${done ? " done" : ""}" data-tk="${id}" title="${esc(why || st.command)}" ${t.work || done ? "disabled" : ""}>${done ? "Done: " : ""}${esc(st.label)}${done || !st.hours ? "" : ` (${st.hours}h)`}</button>`;
+    }).join("")}</div>`;
+  box.querySelectorAll("[data-tk]").forEach((b) => b.addEventListener("click", () => handlers.takeover(b.dataset.tk)));
+}
+
 function renderCampaign(game, handlers) {
   const s = game.s;
+  if (s.takeover && s.takeover.started != null) {
+    $("camp-h").classList.remove("hidden");
+    $("camp").classList.remove("hidden");
+    renderTakeover(game, handlers, $("camp"));
+    return;
+  }
   const c = s.campaign;
   const on = Boolean(c && c.started != null);
   $("camp-h").classList.toggle("hidden", !on);

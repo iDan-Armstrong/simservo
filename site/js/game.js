@@ -9,6 +9,7 @@ import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
 import { addMachine, enterpriseTick, ensureSite, siteTick, webgisdrTick } from "./arcgis.js";
 import { STEPS, campaignTick, checkFinale, ensureCampaign, startStep } from "./campaign.js";
+import * as takeover from "./takeover.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -75,6 +76,7 @@ export class Game {
     enterpriseTick(s);
     if (features(s.level).backups) webgisdrTick(s, (e) => this.log(e));
     for (const e of campaignTick(s, (x) => this.log(x))) this.emit("campaign", e);
+    for (const e of takeover.takeoverTick(s, (x) => this.log(x))) this.emit("takeover", e);
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -118,7 +120,12 @@ export class Game {
   // ------------------------------------------------------------ scanning
   scan({ manual }) {
     const s = this.s;
+    if (takeover.takeoverUnlocked(s) && takeover.startTakeover(s)) {
+      this.log({ kind: "level", text: "Expansion unlocked: The Takeover." });
+      this.emit("takeover", { chapter: 1 });
+    }
     const allowed = sourcesFor(s.level);
+    if (s.takeover && s.takeover.started != null) { allowed.add("aurora-plan"); allowed.add("client-compat"); }
     const snap = snapshot(s, { production: features(s.level).production });
     const all = this.evaluate(snap);
     this.findings = all.filter((x) => allowed.has(x.source));
@@ -136,6 +143,16 @@ export class Game {
       this.award(XP.expansion, "Expansion complete: The 12.1 Upgrade");
       this.emit("campaign", { finale: true });
     }
+    const tk = takeover.checkProgress(s, this.findings);
+    if (tk) {
+      if (tk.finale) {
+        this.award(XP.takeover, "Expansion complete: The Takeover");
+        s.budget += 1500;
+        this.log({ kind: "quest", text: "The Northwind Survey Agency signed the operations contract: +$1,500." });
+      }
+      this.emit("takeover", tk);
+    }
+
     if (s.level >= 3 && !problems.length && !isDown(s)) s.counters.cleanScan = true;
     this.progress();
   }
@@ -203,6 +220,12 @@ export class Game {
   // ------------------------------------------------------------- actions
   busy() {
     return Boolean(this.s.pending);
+  }
+
+  takeoverAct(id) {
+    const r = takeover.startStep(this.s, id, (e) => this.log(e));
+    if (r.ok) this.scan({ manual: false });
+    return r;
   }
 
   campaignAct(id) {

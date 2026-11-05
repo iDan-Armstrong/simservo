@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -148,3 +148,18 @@ def test_expansion_reveal_and_finish_through_real_stack_compat(catalog):
     st["pro_version"], st["target"] = "3.7", None
     worst = max(RANK[f["severity"]] for f in _stack_findings(snap))
     assert worst <= RANK["INFO"], _stack_findings(snap)
+
+
+def test_takeover_through_real_aurora_plan(catalog):
+    tk = catalog["takeover"]
+    found = {f["code"]: f for f in evaluate(tk["asFound"]) if f["source"] == "aurora-plan"}
+    assert found["AUR001"]["severity"] == "FAIL"  # 17.6 not offered in GovCloud yet
+    assert found["AUR002"]["severity"] == "FAIL" and "nwsa-aurora-try1" in found["AUR002"]["title"]
+    assert found["AUR003"]["severity"] == "FAIL"  # unencrypted, in GovCloud
+    assert found["AUR005"]["severity"] == "WARN"  # 14% free for WAL
+    cleared = {f["code"]: f["severity"] for f in evaluate(tk["cleared"]) if f["source"] == "aurora-plan"}
+    assert cleared["AUR001"] == "OK" and cleared["AUR002"] == "OK" and cleared["AUR005"] == "OK"
+    assert cleared["CMP001"] == "OK"  # Aurora 17 on Esri's list for 12.1
+    promoted = [f for f in evaluate(tk["promoted"]) if f["source"] == "client-compat"]
+    assert promoted and max(RANK[f["severity"]] for f in promoted) <= RANK["INFO"]
+    assert promoted[0]["title"].startswith("Aurora PostgreSQL 17")

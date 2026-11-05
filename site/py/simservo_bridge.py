@@ -167,6 +167,20 @@ def _stack(d: dict) -> stack.StackSnapshot:
     )
 
 
+def _takeover(d: dict) -> list[dict]:
+    from rdsops import aurora
+
+    if d.get("plan"):
+        p = d["plan"]
+        findings, _steps = aurora.plan(aurora.AuroraRequest(**p["request"]), aurora.AuroraFacts(**p["facts"]))
+        return _tag(findings, "aurora-plan")
+    c = d.get("compat")
+    if c:
+        return _tag(compat.check(c["engine_version"], c["arcgis"], c.get("postgis_version"),
+                                 platform=c.get("platform", "rds")), "client-compat")
+    return []
+
+
 def _logs(d: dict) -> eglogs.LogSnapshot:
     return eglogs.LogSnapshot(
         hours=d.get("hours", 24),
@@ -209,6 +223,8 @@ def evaluate(snapshot_json: str) -> str:
         out += _tag(backup.evaluate(_backup(s["backups"]), _dt(s["now"])), "backup-check")
     if s.get("stack"):
         out += _tag(stack.evaluate(_stack(s["stack"]), *stack.rdsops_hooks()), "stack-compat")
+    if s.get("takeover"):
+        out += _takeover(s["takeover"])
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")

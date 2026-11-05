@@ -68,6 +68,16 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   server and ArcGIS Data Store in order (each down for hours, with stack-compat failing while
   releases are mixed and out-of-order steps refused with Esri's reason), then ArcGIS Pro to
   its companion version. The campaign ends when stack-compat has nothing to warn about.
+- **Expansion 2, The Takeover**, from level 14 once the 12.1 Upgrade is done. A client,
+  the Northwind Survey Agency (made up), runs ArcGIS 12.1 on RDS for PostgreSQL 17.5 in
+  AWS GovCloud (US) and wants Aurora before your center takes it over. The real
+  `rdsops aurora-plan` reads the client's facts and its findings decide when due diligence
+  is done: an abandoned Aurora cluster blocking a new replica, too little room for WAL, an
+  unencrypted source (a failure in GovCloud), and Esri's minimum Aurora version not yet
+  offered in the Region until AWS ships it there. Then the replica catches up while WAL
+  grows, and the cutover (stop writes, promote, re-point the data stores, add a reader) is
+  timed against the client. After promotion the real `rdsops compat --platform aurora`
+  checks the cluster.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -101,9 +111,10 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | Test | What it proves |
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tests/campaign.test.mjs` | The expansion end to end: unlock at 12, Esri's order and backup rule enforced, components unavailable while upgrading, chapters, finale |
+| `tests/takeover.test.mjs` | Expansion 2 end to end: waits for the 12.1 Upgrade, GovCloud facts, the version arriving in the Region, AWS's order (no promotion while writing or lagging), the finale |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

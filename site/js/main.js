@@ -125,6 +125,7 @@ function drain() {
     else if (e.kind === "achievement") toast("Achievement", `${e.achievement.title}: ${e.achievement.desc}`);
     else if (e.kind === "level") queue.push(() => levelUp(e.from, e.to));
     else if (e.kind === "trollzilla") queue.push(trollzilla);
+    else if (e.kind === "takeover") queue.push(() => showTutorial(e.finale ? "takeover-finale" : `takeover-${e.chapter}`));
     else if (e.kind === "campaign") queue.push(() => showTutorial(e.finale ? "expansion-finale" : `expansion-${e.chapter}`));
   }
   if (queue.length) withPause(async () => { for (const q of queue) await q(); });
@@ -167,6 +168,13 @@ const handlers = {
   drill(mode) {
     const r = game.runDrill(mode);
     if (!r.ok) toast("Drill not run", r.reason);
+    drain();
+    renderAll(game, handlers);
+    writeSave(game.s);
+  },
+  takeover(id) {
+    const r = game.takeoverAct(id);
+    if (!r.ok) toast("Not yet", r.reason);
     drain();
     renderAll(game, handlers);
     writeSave(game.s);

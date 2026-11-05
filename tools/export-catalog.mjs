@@ -43,10 +43,27 @@ const drill = { plan: planPayload(healthy, hreq), evaluate: simulateDrill(health
 const fresh = newGame(3);
 step(fresh, rng(3));
 
+// The takeover client at three points: as found, blockers cleared, promoted.
+const tk = newGame(13);
+tk.level = 14;
+const { startTakeover, STEPS: TK, takeoverSnapshot } = await import("../site/js/takeover.js");
+startTakeover(tk);
+const asFound = structuredClone(takeoverSnapshot(tk));
+for (const id of ["delete_try", "grow_storage", "kms_key"]) TK[id].finish(tk);
+tk.takeover.client.regionAurora.push("17.6");
+const cleared = structuredClone(takeoverSnapshot(tk));
+TK.create_cluster.finish(tk);
+Object.assign(tk.takeover.client.cluster, { lagGb: 0, state: "caught-up" });
+tk.takeover.client.writes = false;
+TK.promote.finish(tk);
+const promoted = structuredClone(takeoverSnapshot(tk));
+const withNow = (t) => ({ ...snapshot(tk), takeover: t });
+
 console.log(JSON.stringify({
   actionCodes: Object.keys(ACTIONS),
   teaches: [...new Set(SCENARIOS.flatMap((x) => x.teaches))],
   fresh: snapshot(fresh),
   scenarios,
   drill,
+  takeover: { asFound: withNow(asFound), cleared: withNow(cleared), promoted: withNow(promoted) },
 }));

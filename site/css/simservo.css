@@ -226,3 +226,4 @@ a { color: var(--cyan); }
 .campaign .col { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .campaign .col .btn { text-align: left; }
 .campaign .col .btn.done { color: var(--ok); border-color: var(--ok); opacity: 0.8; }
+.client-tag { font-size: 10px; color: var(--cyan); border: 1px solid var(--cyan); border-radius: 4px; padding: 0 4px; margin-right: 6px; }

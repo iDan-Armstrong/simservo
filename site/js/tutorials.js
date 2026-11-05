@@ -52,6 +52,12 @@ export const LINKS = {
   esriPortalHa: { title: "Esri: Configuring a highly available portal", url: "https://enterprise.arcgis.com/en/portal/11.4/administer/windows/configuring-a-highly-available-portal.htm" },
   esriDsValidate: { title: "Esri REST: Validate (ArcGIS Data Store)", url: "https://developers.arcgis.com/rest/enterprise-administration/server/validatedatastore/" },
   esriDsUtilities: { title: "Esri: ArcGIS Data Store utility reference (backupdatastore, describedatastore)", url: "https://enterprise.arcgis.com/en/data-store/11.5/install/windows/data-store-utility-reference.htm" },
+  awsAuroraReplica: { title: "AWS: Migrating RDS for PostgreSQL to Aurora with an Aurora read replica", url: "https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Migrating.RDSPostgreSQL.Replica.html" },
+  awsAuroraSnapshot: { title: "AWS: Migrating an RDS for PostgreSQL snapshot to Aurora", url: "https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Migrating.RDSPostgreSQL.Import.Console.html" },
+  awsGovCloud: { title: "AWS GovCloud (US) User Guide", url: "https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/welcome.html" },
+  awsArn: { title: "AWS: ARN format and partitions", url: "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html" },
+  rdsopsAurora: { title: "Runbook: move an RDS geodatabase to Aurora (rdsops aurora-plan)", url: `${RDSOPS}/blob/main/docs/runbooks/aurora-migration.md` },
+  rdsopsAdrAurora: { title: "ADR 0007: Aurora as a migration target", url: `${RDSOPS}/blob/main/docs/adr/0007-aurora-as-a-migration-target.md` },
   esriUpgrade: { title: "Esri: Upgrade ArcGIS Enterprise (paths, order, retired features)", url: "https://doc.esri.com/en/arcgis-enterprise/latest/deploy/upgrade-arcgis-enterprise.html" },
   esriUpgradeDs: { title: "Esri: Upgrade ArcGIS Data Store", url: "https://doc.esri.com/en/arcgis-enterprise/latest/deploy/upgrade-data-store.html" },
   egisopsAdr7: { title: "ADR 0007: stack-compat uses rdsops for the database", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0007-stack-compat-uses-rdsops.md" },
@@ -356,6 +362,71 @@ TUTORIALS["expansion-finale"] = {
       heading: "Twelve One",
       body: "The whole stack runs 12.1 on a supported database, and you did it in Esri's order with a backup in hand. Next on the horizon: a full move and migration.",
       links: L("esriUpgrade", "egisops"),
+    },
+  ],
+};
+
+TUTORIALS["level-14"] = {
+  title: "Level 14: A client is calling",
+  cards: [
+    {
+      heading: "Expansion 2: The Takeover",
+      body: "A federal client wants your operations center to run its ArcGIS site. First, they want their geodatabase moved from RDS for PostgreSQL to Aurora. The work opens once your own site is on 12.1, so finish The 12.1 Upgrade first if you have not.",
+      links: L("rdsopsAurora"),
+    },
+  ],
+};
+
+TUTORIALS["takeover-1"] = {
+  title: "The Takeover: Due diligence",
+  cards: [
+    {
+      heading: "A client in GovCloud",
+      body: "The Northwind Survey Agency (a made-up client) runs ArcGIS Enterprise 12.1 on RDS for PostgreSQL 17.5 in AWS GovCloud (US). GovCloud is its own AWS partition: ARNs read arn:aws-us-gov, and services and versions can arrive there later than in other Regions.",
+      links: L("awsGovCloud", "awsArn"),
+    },
+    {
+      heading: "rdsops aurora-plan",
+      body: "The real rdsops aurora-plan now reads the client's facts. It picks the Aurora version: the lowest one the Region offers that AWS allows for the source and Esri supports for 12.1. Then it checks the read replica method's preconditions, encryption and room for WAL. Its findings carry a client tag.",
+      links: L("rdsops", "rdsopsAdrAurora", "esriCloud"),
+    },
+    {
+      heading: "Clear the blockers",
+      body: "Chapter one ends when aurora-plan stops objecting. An abandoned Aurora cluster from an earlier attempt blocks a new replica. WAL for the replica piles up on the source, so it needs free storage. The source is not encrypted, which is a failure in GovCloud; the new cluster will be, with a customer-managed key. And Esri's minimum Aurora version may not be in GovCloud yet.",
+      links: L("awsAuroraReplica"),
+    },
+  ],
+};
+
+TUTORIALS["takeover-2"] = {
+  title: "The Takeover: Replicate",
+  cards: [
+    {
+      heading: "Blockers cleared",
+      body: "Create the Aurora cluster as a read replica of the client's instance. It copies the data, then follows the source until it catches up. The client keeps working the whole time. Watch the lag fall and the WAL grow on the source.",
+      links: L("awsAuroraReplica"),
+    },
+  ],
+};
+
+TUTORIALS["takeover-3"] = {
+  title: "The Takeover: Cutover",
+  cards: [
+    {
+      heading: "Caught up",
+      body: "Replica lag is zero. Now the short outage: stop the services that write, promote the cluster, point the client's registered data stores and connection files at the cluster endpoint, and start the services again. Every hour writes are stopped counts against you. Then add a reader in a second Availability Zone, since there was no Multi-AZ during the move.",
+      links: L("awsAuroraReplica", "rdsopsAurora"),
+    },
+  ],
+};
+
+TUTORIALS["takeover-finale"] = {
+  title: "The Takeover: complete",
+  cards: [
+    {
+      heading: "Under new management",
+      body: "The client runs on Aurora PostgreSQL 17.6, encrypted, with a reader in a second zone, and rdsops compat agrees Esri supports it. They signed. Their site is now yours to watch.",
+      links: L("rdsopsAurora"),
     },
   ],
 };

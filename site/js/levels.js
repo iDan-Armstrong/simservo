@@ -75,6 +75,7 @@ const UNLOCKS = {
   10: ["ArcGIS Data Store validation (egisops datastore)", "Data Store standby machine in the shop", "Rare events. Something large is out there."],
   11: ["Site backups with WebGISDR (egisops backup-check)", "S3 backup storage in the shop"],
   12: ["Expansion: The 12.1 Upgrade", "Stack compatibility (egisops stack-compat) replaces the planning-only compat scan"],
+  14: ["Expansion 2: The Takeover (after the 12.1 Upgrade)", "A client in AWS GovCloud (US)", "Aurora migration planning (rdsops aurora-plan)"],
   31: ["Snapshot-mode drills", "Tighter recovery target: 30 minutes"],
   41: ["A second ArcGIS Server machine joins the site", "Certificate and license renewals on a schedule"],
 };

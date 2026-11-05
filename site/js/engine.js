@@ -117,6 +117,7 @@ export function freeBytes(s) {
 }
 
 import { stackSnapshot } from "./campaign.js";
+import { takeoverSnapshot } from "./takeover.js";
 import { backupSnapshot, datastoreSnapshot, logsSnapshot, newSite, portalSnapshot, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
 
 export { siteUp };
@@ -248,6 +249,7 @@ export function snapshot(s, { production = false } = {}) {
     datastore: s.arcgis ? datastoreSnapshot(s) : undefined,
     backups: s.arcgis ? backupSnapshot(s) : undefined,
     stack: s.arcgis ? stackSnapshot(s) : undefined,
+    takeover: takeoverSnapshot(s),
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },
