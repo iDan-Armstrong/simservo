@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Escaped text with glossary terms marked for hover help. Never use for commands.
 const rich = (t) => annotate(esc(t));
-const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore"]);
+const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check"]);
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
 
@@ -85,6 +85,14 @@ function renderMap(game) {
        <text x="360" y="167" fill="var(--dim)" font-size="10" text-anchor="middle">${dsPrimary && ds.backupLocationFull ? "backups stopped" : `${dsUp}/${ds.machines.length} up`}</text></g>
        <line x1="345" y1="124" x2="352" y2="130" stroke="var(--dim)" marker-end="url(#arr)"/>`
     : "";
+  const wgs = ags.webgisdr;
+  const wgLast = wgs && wgs.backups.length ? wgs.backups[wgs.backups.length - 1] : null;
+  const wgAge = wgLast ? s.tick - wgLast.tick : null;
+  const wgFailed = wgs && wgs.runs.length && wgs.runs[wgs.runs.length - 1].status !== "success";
+  const wgColor = !wgLast || wgAge > 72 ? "var(--fail)" : wgAge > 24 || wgFailed ? "var(--warn)" : "var(--ok)";
+  const wgLine = feat.backups && wgs
+    ? `<g>${svgTitle("webgisdr", "Age of the newest .webgissite backup of the whole site.")}<text x="398" y="310" fill="${wgColor}" font-size="10" text-anchor="end">site backup ${wgLast ? `${wgAge}h ago` : "none"}${wgFailed ? ", last run failed" : ""}</text></g>`
+    : "";
   const slots = s.db.slots.map((x, i) =>
     `<g>${svgTitle("replication slot")}<line x1="290" y1="${215 + i * 10}" x2="400" y2="${190 + i * 10}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="2 4"/>
      <text x="402" y="${192 + i * 10}" fill="var(--warn)" font-size="9" text-anchor="end">${esc(x.name)}</text></g>`).join("");
@@ -108,8 +116,8 @@ function renderMap(game) {
        <text x="200" y="211" fill="var(--ink)" font-size="10" text-anchor="middle">PostgreSQL ${esc(inst.engineVersion)} / PostGIS ${esc(inst.postgis)}</text>
        <text x="200" y="226" fill="var(--dim)" font-size="10" text-anchor="middle">${esc(inst.cls)} ${inst.multiAz ? "Multi-AZ" : "single-AZ"}</text>
        <text x="200" y="240" fill="${color}" font-size="10" text-anchor="middle">${esc(inst.status)}</text></g>
-    ${standby}${slots}${portalNode}${dsNode}
-    <text x="22" y="310" fill="var(--dim)" font-size="10">backups ${inst.backupRetention}d  ${inst.deletionProtection ? "delete-protected" : "deletable"}  ${inst.iamAuth ? "IAM auth" : "password auth"}</text>`;
+    ${standby}${slots}${portalNode}${dsNode}${wgLine}
+    <text x="22" y="310" fill="var(--dim)" font-size="10">RDS backups ${inst.backupRetention}d  ${inst.deletionProtection ? "delete-protected" : "deletable"}  ${inst.iamAuth ? "IAM auth" : "password auth"}</text>`;
 
   const used = Math.max(0, inst.allocatedGb * GIB - freeBytes(s));
   const storePct = Math.min(100, (100 * used) / (inst.allocatedGb * GIB));

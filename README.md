@@ -56,6 +56,11 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   fill and the portal's federation check fails too, so one outage shows up in three
   tools. With a standby machine (in the shop) the standby takes over and it is only a
   warning. A full backup share stops backups quietly until the backup age gives it away.
+- Site backups from level 11: the real `egisops backup-check` reads the game's
+  `webgisdr.properties`, backup folder and last-run JSON. The shop starts with no backup and
+  no schedule. Scenarios disable the nightly task, fill the backup share, "fix" the doubled
+  backslashes in the paths, and rotate the portal password back into plain text. Backups
+  can move to S3 with an IAM role.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -88,9 +93,9 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 
 | Test | What it proves |
 | --- | --- |
-| `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
+| `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
 | `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions

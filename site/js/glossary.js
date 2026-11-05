@@ -14,6 +14,11 @@ export const TERMS = [
   { term: "ArcGIS Pro", def: "Esri's desktop GIS application. Editors and analysts use it to work with the geodatabase and publish services." },
   { term: "Portal", also: ["Portal for ArcGIS"], def: "The website part of ArcGIS Enterprise where people sign in, find content and share maps. It sits in front of one or more ArcGIS Server sites." },
   { term: "web adaptor", def: "A small web application on IIS or Tomcat that receives traffic on the usual web port (443) and passes it to ArcGIS Server or Portal." },
+  { term: "Amazon S3", also: ["S3"], def: "AWS object storage. Backups written to an S3 bucket live outside the servers they protect, and an IAM role can grant access without a stored key." },
+  { term: "JSON", def: "A plain-text format for structured data. WebGISDR can write its result as JSON, which a script or egisops can read to see what happened." },
+  { term: "properties file", also: ["webgisdr.properties"], def: "The settings file WebGISDR reads: the portal URL and admin account, where backups go, and the backup mode. Backslashes in its paths must be doubled." },
+  { term: "webgissite", also: [".webgissite"], def: "The single backup file WebGISDR writes for the whole deployment. Restoring from a folder picks the newest one by last-modified time." },
+  { term: "scheduled task", def: "A job the operating system runs on a schedule, such as Windows Task Scheduler or cron. Backups that depend on one stop silently if it is disabled." },
   { term: "hosting server", def: "The federated ArcGIS Server that Portal uses for hosted layers. It has ArcGIS Data Store registered with it, and publishing hosted layers goes through it." },
   { term: "hosted feature layer", also: ["hosted feature layers", "hosted layer", "hosted layers"], def: "A feature layer created in Portal whose data lives in ArcGIS Data Store, not in a geodatabase you manage. If the data store is down, these layers fail." },
   { term: "user type", also: ["user types", "user type license", "user type licenses"], def: "The license each Portal member holds, such as Creator, Field Worker or Viewer. Each type has a fixed count; when every one is assigned, no new member can get it." },
@@ -132,6 +137,7 @@ export const CODES = {
   LOG: "Logs (egisops logs): SEVERE ArcGIS Server log entries grouped by source and code.",
   PTL: "Portal health (egisops portal-health): portal machines, licenses, federation and the search index.",
   DST: "Data Store (egisops datastore): ArcGIS Data Store validation, machines, standby and backups.",
+  BAK: "Site backups (egisops backup-check): the WebGISDR properties file, the newest backup, and the last run.",
 };
 
 export const SEVERITY = {

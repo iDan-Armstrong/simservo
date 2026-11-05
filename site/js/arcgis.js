@@ -15,6 +15,7 @@ export function newSite() {
     machines: [{ name: "GISSERVER1.EXAMPLE.COM", configured: "STARTED", realtime: "STARTED" }],
     portal: newPortal(),
     datastore: newDataStore(),
+    webgisdr: newWebgisdr(),
     licenses: [
       { name: "ArcGIS Server Standard", canExpire: true, expiresTick: 400 * DAY },
       { name: "Data Interoperability", canExpire: true, expiresTick: 45 * DAY },
@@ -49,6 +50,7 @@ export function ensureSite(s) {
   if (!s.arcgis) s.arcgis = newSite();
   if (!s.arcgis.portal) s.arcgis.portal = newPortal(); // saves from before v0.3
   if (!s.arcgis.datastore) s.arcgis.datastore = newDataStore();
+  if (!s.arcgis.webgisdr) s.arcgis.webgisdr = newWebgisdr();
   return s.arcgis;
 }
 
@@ -180,6 +182,119 @@ export function enterpriseTick(s) {
   if (!dsPrimaryUp(s) && siteUp(s)) {
     logEntry(s, "SEVERE", 8559, "Hosted/Inspections.FeatureServer", a.machines[0].name, "Failed to connect to the managed database.");
   }
+}
+
+// ----------------------------------------------------------------- WebGISDR backups
+// The game keeps the facts egisops backup-check reads from disk: the properties file, the
+// backup folder and the tool's --output JSON. Failure messages are illustrative.
+
+export const UNC = (...parts) => `\\\\\\\\${parts.join("\\\\")}`; // \\server\share with every backslash doubled, as Esri requires
+
+export function newWebgisdr() {
+  return {
+    provider: "FileSystem",
+    mode: "backup",
+    portalUrl: "https://portal1.example.com:7443/arcgis",
+    sharedLocation: UNC("fileserver", "wgtemp"),
+    backupLocation: UNC("fileserver", "wgbackups"),
+    passwordEncrypted: false, // until the tool runs once with the file
+    scheduled: false, // nobody has set up the nightly task yet
+    shareFull: false,
+    keep: 7,
+    backups: [], // { name, tick, gb }
+    runs: [], // { tick, status, failed: [{ name, storeType }], messages }
+  };
+}
+
+export function ensureWebgisdr(s) {
+  const a = ensureSite(s);
+  if (!a.webgisdr) a.webgisdr = newWebgisdr();
+  return a.webgisdr;
+}
+
+// Java .properties decoding: a backslash escapes the next character.
+const decode = (raw) => raw.replace(/\\(.)/g, "$1");
+const pad = (n) => String(n).padStart(2, "0");
+function backupName(tick, mode) {
+  const d = new Date(START + tick * 3600_000);
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}-${pad(d.getUTCHours())}0000-UTC-${mode.toUpperCase()}.webgissite`;
+}
+const pathsOk = (w) => !/(^|[^\\])\\([^\\]|$)/.test(`${w.sharedLocation.replace(/\\\\/g, "")}${w.backupLocation.replace(/\\\\/g, "")}`);
+
+// One WebGISDR export. Components fail the way the real tool reports them.
+export function exportNow(s) {
+  const a = ensureSite(s);
+  const w = ensureWebgisdr(s);
+  w.passwordEncrypted = true; // the tool encrypts secrets every time it runs with the file
+  const failed = [];
+  let messages = "";
+  if (!a.portal.machines.some((m) => m.ready)) { failed.push({ name: "Portal for ArcGIS" }); messages = "Unable to connect to the portal."; }
+  if (!siteUp(s)) { failed.push({ name: "ArcGIS Server" }); messages ||= "Unable to connect to the hosting server."; }
+  if (!dsPrimaryUp(s)) { failed.push({ name: "ArcGIS Data Store", storeType: "relational" }); messages ||= "Unable to connect to the ArcGIS Data Store machine."; }
+  if (!pathsOk(w)) messages ||= `The backup location ${decode(w.backupLocation)} does not exist.`;
+  else if (w.provider === "FileSystem" && w.shareFull) messages ||= "There is not enough space in the backup location.";
+  const ok = !messages;
+  const prev = w.backups[w.backups.length - 1];
+  if (ok) {
+    w.backups.push({ name: backupName(s.tick, w.mode), tick: s.tick, gb: Math.round(((prev ? prev.gb : 5.6) + 0.04) * 100) / 100 });
+    if (w.backups.length > w.keep) w.backups.splice(0, w.backups.length - w.keep);
+  }
+  w.runs.push({ tick: s.tick, status: ok ? "success" : "failure", failed, messages, location: ok ? w.backups[w.backups.length - 1].name : null });
+  if (w.runs.length > 10) w.runs.splice(0, w.runs.length - 10);
+  return ok;
+}
+
+export function webgisdrTick(s, log) {
+  const w = ensureWebgisdr(s);
+  if (!w.scheduled || hourOf(s.tick) !== 2) return;
+  const ok = exportNow(s);
+  log({ kind: ok ? "info" : "warn", text: ok ? "Nightly WebGISDR export finished." : `Nightly WebGISDR export failed: ${w.runs[w.runs.length - 1].messages}` });
+}
+
+const hourOf = (tick) => new Date(START + tick * 3600_000).getUTCHours();
+
+// Same field names as egisops.backup.BackupSnapshot.
+export function backupSnapshot(s) {
+  const w = ensureWebgisdr(s);
+  const raw = {
+    PORTAL_ADMIN_URL: w.portalUrl,
+    PORTAL_ADMIN_USERNAME: "portaladmin",
+    PORTAL_ADMIN_PASSWORD: w.passwordEncrypted ? "AES-encrypted-value" : "plain-text-in-game",
+    PORTAL_ADMIN_PASSWORD_ENCRYPTED: String(w.passwordEncrypted),
+    BACKUP_RESTORE_MODE: w.mode,
+    SHARED_LOCATION: w.sharedLocation,
+    INCLUDE_OBJECT_STORE_CACHES: "false",
+    BACKUP_STORE_PROVIDER: w.provider,
+  };
+  if (w.provider === "FileSystem") raw.BACKUP_LOCATION = w.backupLocation;
+  else Object.assign(raw, { S3_BUCKET: "egdb-lab-wgbackups", S3_CREDENTIALTYPE: "IAMRole", S3_REGION: "us-east-1" });
+  const properties = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, decode(v)]));
+  const dir = w.provider === "FileSystem" ? properties.BACKUP_LOCATION : "s3://egdb-lab-wgbackups";
+  const last = w.runs[w.runs.length - 1];
+  const where = (name) => (w.provider === "FileSystem" ? `${dir}\\${name}` : `${dir}/${name}`);
+  return {
+    properties_path: "webgisdr.properties",
+    properties,
+    raw,
+    backups_dir: dir,
+    backups: w.backups.map((b) => ({ name: b.name, modified: isoTick(b.tick), size: Math.round(b.gb * 1024 ** 3) })),
+    runs: last ? [{
+      path: "last-run.json",
+      written: isoTick(last.tick),
+      operation: "backup",
+      status: last.status,
+      backup_location: last.location ? where(last.location) : null,
+      elapsed: last.status === "success" ? "00hr:14min:02sec" : "00hr:03min:41sec",
+      messages: last.status === "success" ? "" : last.messages,
+      components: [
+        ["Portal for ArcGIS", null], ["ArcGIS Server", null], ["ArcGIS Data Store", "relational"],
+      ].map(([name, storeType]) => {
+        const f = last.failed.find((x) => x.name === name);
+        return { name, status: f || (last.status !== "success" && !last.failed.length) ? "failure" : "success", store_type: storeType, url: null, messages: f ? last.messages : "" };
+      }),
+    }] : [],
+    errors: [],
+  };
 }
 
 export function addPortalMachine(s) {

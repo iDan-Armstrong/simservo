@@ -3,7 +3,7 @@
 // busy; `cost` is one-time dollars; recurring cost shows up through monthlyCost().
 
 import { EXTRA_MACHINE_MONTH, GIB, INSTANCE_CLASSES } from "./engine.js";
-import { addDataStoreStandby, addPortalMachine, dsPrimaryUp } from "./arcgis.js";
+import { UNC, addDataStoreStandby, addPortalMachine, dsPrimaryUp, ensureWebgisdr, exportNow } from "./arcgis.js";
 
 const ev = (f) => f.evidence || {};
 const findTable = (s, name) => s.db.tables.find((t) => `${t.schema}.${t.table}` === name);
@@ -396,6 +396,67 @@ Object.assign(ACTIONS, {
   ],
 });
 
+// ------------------------------------------------- WebGISDR backups (backup-check)
+const wg = (s) => ensureWebgisdr(s);
+const WGCMD = "cd <Portal install>\\tools\\webgisdr && webgisdr.bat --export --file webgisdr.properties --output last-run.json";
+const runExport = {
+  id: "export_now", label: "Run a WebGISDR export now", hours: 1, cost: 0,
+  command: () => WGCMD,
+  apply(s) { if (exportNow(s)) s.counters.wgExports = (s.counters.wgExports || 0) + 1; },
+};
+
+Object.assign(ACTIONS, {
+  BAK010: [
+    runExport,
+    {
+      id: "schedule_export", label: "Schedule a nightly export at 02:00", hours: 1, cost: 0,
+      available: (s) => !wg(s).scheduled,
+      command: () => `schtasks /create /tn "WebGISDR nightly" /sc daily /st 02:00 /ru <backup service account> /tr "${WGCMD}"`,
+      apply(s) { wg(s).scheduled = true; },
+    },
+  ],
+  BAK011: [
+    {
+      id: "fix_and_export", label: "Fix what failed, then export again", hours: 2, cost: 0,
+      command: () => `Read last-run.json, fix the named component or location, then ${WGCMD}`,
+      apply(s) {
+        const a = site(s);
+        const w = wg(s);
+        w.shareFull = false;
+        for (const m of a.datastore.machines) m.up = true;
+        for (const m of a.portal.machines) m.ready = true;
+        if (a.licensed) for (const m of a.machines) { m.realtime = "STARTED"; m.configured = "STARTED"; }
+        if (exportNow(s)) s.counters.wgExports = (s.counters.wgExports || 0) + 1;
+      },
+    },
+  ],
+  BAK003: [
+    {
+      id: "double_backslashes", label: "Double the backslashes in the paths", hours: 0, cost: 0,
+      command: () => "In webgisdr.properties: BACKUP_LOCATION = \\\\\\\\fileserver\\\\wgbackups (every backslash doubled)",
+      apply(s) {
+        const w = wg(s);
+        w.backupLocation = UNC("fileserver", "wgbackups");
+        w.sharedLocation = UNC("fileserver", "wgtemp");
+      },
+    },
+  ],
+  BAK004: [
+    {
+      id: "encrypt_secrets", label: "Run WebGISDR once so it encrypts the password", hours: 1, cost: 0,
+      available: (s) => !wg(s).passwordEncrypted,
+      command: () => `${WGCMD}   (then confirm PORTAL_ADMIN_PASSWORD_ENCRYPTED = true)`,
+      apply(s) { exportNow(s); },
+    },
+    {
+      id: "s3_iam_role", label: "Store backups in S3 with an IAM role (about $25/mo)", hours: 2, cost: 0,
+      available: (s) => wg(s).provider !== "AmazonS3",
+      command: () => "BACKUP_STORE_PROVIDER = AmazonS3, S3_BUCKET = egdb-lab-wgbackups, S3_CREDENTIALTYPE = IAMRole, S3_REGION = us-east-1 (instance role with s3:PutObject/GetObject on the bucket)",
+      apply(s) { wg(s).provider = "AmazonS3"; },
+    },
+  ],
+});
+
 export function actionsFor(finding, s) {
   return (ACTIONS[finding.code] || []).filter((a) => !a.available || a.available(s, finding));
 }
@@ -410,6 +471,7 @@ export const UPGRADES = [
   { id: "shop_autoscale", label: "Storage autoscaling", code: "HLT010", action: "autoscale", minLevel: 4, has: (s) => Boolean(s.instance.maxAllocatedGb) },
   { id: "shop_portal_ha", label: "Second portal machine", code: "PTL003", action: "add_portal_machine", minLevel: 9, has: (s) => s.arcgis.portal.machines.length > 1 },
   { id: "shop_ds_standby", label: "Data Store standby machine", code: "DST003", action: "add_ds_standby", minLevel: 10, has: (s) => s.arcgis.datastore.machines.length > 1 },
+  { id: "shop_wg_s3", label: "S3 backup storage (IAM role)", code: "BAK004", action: "s3_iam_role", minLevel: 11, has: (s) => s.arcgis.webgisdr.provider === "AmazonS3" },
   { id: "shop_scale", label: "Bigger instance class", code: "HLT001", action: "scale_up", minLevel: 5, has: (s) => s.instance.cls === "db.m7g.large" },
 ];
 

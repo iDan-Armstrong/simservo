@@ -5,7 +5,7 @@
 // weight: relative chance per roll. minLevel: first level it can appear.
 
 import { GIB, MIB, addSession } from "./engine.js";
-import { stopDataStorePrimary } from "./arcgis.js";
+import { exportNow, stopDataStorePrimary } from "./arcgis.js";
 
 export const SCENARIOS = [
   {
@@ -259,6 +259,59 @@ export const SCENARIOS = [
     minLevel: 10, weight: 2,
     when: (s) => !s.arcgis.datastore.backupLocationFull,
     start(s) { const d = s.arcgis.datastore; d.backupLocationFull = true; d.lastBackupTick = s.tick - 9 * 24; },
+  },
+  {
+    id: "wg_schedule_lost",
+    title: "The backup task quietly stopped",
+    category: "accident",
+    blurb: "The scheduled task that runs WebGISDR every night was disabled during a server migration a few days ago. Nobody noticed, because nothing failed. Nothing ran.",
+    teaches: ["BAK010"],
+    minLevel: 11, weight: 3,
+    when: (s) => s.arcgis.webgisdr.scheduled && s.arcgis.webgisdr.backups.length > 0,
+    start(s) {
+      const w = s.arcgis.webgisdr;
+      w.scheduled = false;
+      for (const b of w.backups) b.tick -= 60; // the last runs happened before the migration
+      for (const r of w.runs) r.tick -= 60;
+    },
+  },
+  {
+    id: "wg_share_full",
+    title: "The backup share is full",
+    category: "accident",
+    blurb: "Last night's WebGISDR export ran out of room on the file share. The task ran and failed, and the output file says so.",
+    teaches: ["BAK011"],
+    minLevel: 11, weight: 2,
+    when: (s) => s.arcgis.webgisdr.provider === "FileSystem" && !s.arcgis.webgisdr.shareFull,
+    start(s) {
+      const w = s.arcgis.webgisdr;
+      w.shareFull = true;
+      exportNow(s);
+    },
+  },
+  {
+    id: "wg_tidied_paths",
+    title: "Someone tidied up webgisdr.properties",
+    category: "bad-actor",
+    blurb: "A well-meaning colleague thought the doubled backslashes in the backup paths were a typo and fixed them. Every export since writes to a path that does not exist.",
+    teaches: ["BAK003"],
+    minLevel: 11, weight: 2,
+    when: (s) => s.arcgis.webgisdr.provider === "FileSystem" && s.arcgis.webgisdr.backupLocation.startsWith("\\\\\\\\"),
+    start(s) {
+      const w = s.arcgis.webgisdr;
+      w.backupLocation = "\\\\fileserver\\wgbackups";
+      w.sharedLocation = "\\\\fileserver\\wgtemp";
+    },
+  },
+  {
+    id: "wg_password_rotated",
+    title: "The portal password was rotated",
+    category: "compliance",
+    blurb: "Security rotated the portal administrator password. Someone pasted the new one into webgisdr.properties and set the ENCRYPTED flag back to false, as Esri says to. It sits there in plain text until the tool runs.",
+    teaches: ["BAK004"],
+    minLevel: 11, weight: 2,
+    when: (s) => s.arcgis.webgisdr.passwordEncrypted,
+    start(s) { s.arcgis.webgisdr.passwordEncrypted = false; },
   },
   {
     id: "dropped_table",

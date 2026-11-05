@@ -7,7 +7,7 @@ import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
-import { addMachine, enterpriseTick, ensureSite, siteTick } from "./arcgis.js";
+import { addMachine, enterpriseTick, ensureSite, siteTick, webgisdrTick } from "./arcgis.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -22,7 +22,7 @@ export function incidentKey(f) {
 
 export function sourcesFor(level) {
   const f = features(level);
-  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.portal && "portal-health", f.datastore && "datastore", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
+  return new Set(["inventory", f.health && "health", f.server && "server-health", f.services && "services", f.services && "logs", f.portal && "portal-health", f.datastore && "datastore", f.backups && "backup-check", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
 }
 
 export class Game {
@@ -64,6 +64,7 @@ export class Game {
     backupTick(s);
     { const { hour, weekday } = clock(s.tick); siteTick(s, (e) => this.log(e), businessLoad(hour, weekday) + (s.db.extraConnections > 0 ? 0.6 : 0), this.rand); }
     enterpriseTick(s);
+    if (features(s.level).backups) webgisdrTick(s, (e) => this.log(e));
     this.finishPending();
     this.checkAudit();
     this.runScenarios();

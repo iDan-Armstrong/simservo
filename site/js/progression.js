@@ -21,6 +21,7 @@ export const QUESTS = [
   { id: "q_drill", title: "Prove your backups", goal: "Pass a restore drill with no warnings (DRL)", minLevel: 6, done: (s) => (s.counters.cleanDrills || 0) >= 1 },
   { id: "q_federation", title: "Federation checks out", goal: "A portal scan where the hosting server validates (PTL008)", minLevel: 9, done: (s) => Boolean(s.counters.federationOk) },
   { id: "q_two_of_everything", title: "Two of everything", goal: "Run a second portal machine and a Data Store standby (PTL003, DST003)", minLevel: 10, done: (s) => Boolean(s.arcgis && s.arcgis.portal.machines.length > 1 && s.arcgis.datastore.machines.length > 1) },
+  { id: "q_nightly", title: "Every night at two", goal: "Schedule WebGISDR and finish a backup (BAK010)", minLevel: 11, done: (s) => Boolean(s.arcgis && s.arcgis.webgisdr.scheduled && s.arcgis.webgisdr.backups.length) },
   { id: "q_week", title: "Week one", goal: "Survive seven game days", minLevel: 3, done: (s) => s.tick >= 24 * 7 },
 ];
 
@@ -43,6 +44,7 @@ export const ACHIEVEMENTS = [
   { id: "pool_shark", title: "Pool Shark", desc: "Tune an instance pool that was maxed out.", test: (s) => (s.counters.poolsTuned || 0) >= 1 },
   { id: "found_it", title: "Found It", desc: "Rebuild the portal search index.", test: (s) => (s.counters.reindexed || 0) >= 1 },
   { id: "back_online", title: "Back Online", desc: "Bring ArcGIS Data Store back after hosted layers went dark.", test: (s) => (s.counters.dataStoreStarts || 0) >= 1 },
+  { id: "whole_site", title: "The Whole Site", desc: "Finish five WebGISDR exports.", test: (s) => (s.arcgis && s.arcgis.webgisdr.runs.filter((r) => r.status === "success").length >= 5) || (s.counters.wgExports || 0) >= 5 },
   { id: "tier_one", title: "Tier One", desc: "Reach level 10.", test: (s) => s.level >= 10 },
   { id: "it_is_real", title: "It Is Real", desc: "See Trollzilla.", hidden: true, test: (s) => (s.counters.trollzilla || 0) >= 1 },
   { id: "trollzilla_survivor", title: "Trollzilla Survivor", desc: "Still standing a week after Trollzilla.", hidden: true, test: (s) => Boolean(s.counters.survivedTrollzilla) },

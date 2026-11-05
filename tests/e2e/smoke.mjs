@@ -136,6 +136,18 @@ try {
   const dsAfter = await page.evaluate(() => { const g = window.simservo; g.tick(); document.querySelector("#btn-scan").click(); return g.findings.filter((f) => ["DST002", "PTL008"].includes(f.code)).map((f) => `${f.code} ${f.severity}`); });
   if (dsAfter.some((c) => c.endsWith("FAIL"))) fail(`starting the data store did not clear the failures: ${dsAfter}`);
 
+  // Site backups through the real egisops backup-check
+  await page.evaluate(() => { const g = window.simservo; g.s.level = 11; g.s.xp = Math.max(g.s.xp, 5400); g.s.pending = null; document.querySelector("#btn-scan").click(); });
+  const bak = await page.evaluate(() => window.simservo.findings.filter((f) => f.source === "backup-check").map((f) => `${f.code} ${f.severity}`));
+  console.log("backup-check:", bak.join(", "));
+  if (!bak.includes("BAK010 FAIL")) fail("no WebGISDR backup should be BAK010 FAIL");
+  await page.click("#findings .finding:has(.code:text-is('BAK010'))");
+  await page.click("#findings .finding.open button[data-a='export_now']");
+  const bakAfter = await page.evaluate(() => { const g = window.simservo; g.tick(); document.querySelector("#btn-scan").click(); return g.findings.filter((f) => f.source === "backup-check" && ["BAK010", "BAK011", "BAK004"].includes(f.code)).map((f) => `${f.code} ${f.severity}`); });
+  console.log("after export:", bakAfter.join(", "));
+  if (!bakAfter.includes("BAK010 OK") || !bakAfter.includes("BAK011 OK") || bakAfter.some((c) => c.startsWith("BAK004"))) fail(`export did not produce a scored backup: ${bakAfter}`);
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/backups.png" });
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

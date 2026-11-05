@@ -116,7 +116,7 @@ export function freeBytes(s) {
   return s.instance.allocatedGb * GIB - usedBytes(s);
 }
 
-import { datastoreSnapshot, logsSnapshot, newSite, portalSnapshot, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
+import { backupSnapshot, datastoreSnapshot, logsSnapshot, newSite, portalSnapshot, serverSnapshot, servicesSnapshot, siteUp } from "./arcgis.js";
 
 export { siteUp };
 
@@ -245,6 +245,7 @@ export function snapshot(s, { production = false } = {}) {
     logs: s.arcgis ? logsSnapshot(s) : undefined,
     portal: s.arcgis ? portalSnapshot(s) : undefined,
     datastore: s.arcgis ? datastoreSnapshot(s) : undefined,
+    backups: s.arcgis ? backupSnapshot(s) : undefined,
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },

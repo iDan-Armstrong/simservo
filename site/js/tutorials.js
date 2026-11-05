@@ -52,6 +52,11 @@ export const LINKS = {
   esriPortalHa: { title: "Esri: Configuring a highly available portal", url: "https://enterprise.arcgis.com/en/portal/11.4/administer/windows/configuring-a-highly-available-portal.htm" },
   esriDsValidate: { title: "Esri REST: Validate (ArcGIS Data Store)", url: "https://developers.arcgis.com/rest/enterprise-administration/server/validatedatastore/" },
   esriDsUtilities: { title: "Esri: ArcGIS Data Store utility reference (backupdatastore, describedatastore)", url: "https://enterprise.arcgis.com/en/data-store/11.5/install/windows/data-store-utility-reference.htm" },
+  esriWgBackup: { title: "Esri: Create an ArcGIS Enterprise backup", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/create-web-gis-backup.html" },
+  esriWgProps: { title: "Esri: WebGISDR tool properties file", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/populate-webgisdr-tool-properties-file.html" },
+  esriWgOutput: { title: "Esri: WebGISDR tool output file", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/webgisdr-tool-output-file.html" },
+  esriWgOverview: { title: "Esri: ArcGIS Enterprise backups (what is and is not included)", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/overview-backup-restore-web-gis.html" },
+  egisopsAdr6: { title: "ADR 0006: backup-check works on files and never repeats a secret", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0006-backup-check-works-on-files.md" },
   egisopsAdr5: { title: "ADR 0005: portal tokens and data store machine names", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0005-portal-tokens-and-data-store-machines.md" },
   esriMaint: { title: "Esri: Enterprise geodatabase maintenance tasks (PostgreSQL)", url: "https://pro.arcgis.com/en/pro-app/latest/help/data/geodatabases/manage-postgresql/enterprise-geodatabase-maintenance.htm" },
 };
@@ -275,6 +280,27 @@ export const TUTORIALS = {
       },
     ],
   },
+};
+
+TUTORIALS["level-11"] = {
+  title: "Level 11: Back up the whole site with WebGISDR",
+  cards: [
+    {
+      heading: "One file for the whole deployment",
+      body: "RDS snapshots protect your geodatabase. They do not protect the portal's items, the services and their settings, federation, or the hosted feature layers in ArcGIS Data Store. Esri's WebGISDR tool exports all of that into one .webgissite file, and the same tool restores it.",
+      links: L("esriWgBackup", "esriWgOverview"),
+    },
+    {
+      heading: "egisops backup-check",
+      body: "The real egisops backup-check now reads your webgisdr.properties file, your backup folder and the JSON the tool writes after each run. It checks the settings, scores the newest backup against a 24-hour recovery point objective, and reports which part of the last run failed. Right now there is no backup at all.",
+      links: L("egisops", "esriWgProps", "esriWgOutput", "egisopsAdr6"),
+    },
+    {
+      heading: "Schedule it, then watch it",
+      body: "Run one export now, then schedule it nightly. Backups that depend on a scheduled task stop without an error when someone disables the task, so the age of the newest backup is the number to watch. Map caches and referenced data are not in the file; back those up too.",
+      links: L("esriWgOverview"),
+    },
+  ],
 };
 
 TUTORIALS["level-41"] = {

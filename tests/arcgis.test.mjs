@@ -145,3 +145,59 @@ test("portal-health and datastore are gated to levels 9 and 10", () => {
   g.s.level = 10; g.scan({ manual: false });
   assert.deepEqual(g.findings.map((f) => f.code), ["PTL003", "DST003"]);
 });
+
+import { backupSnapshot, exportNow, webgisdrTick } from "../site/js/arcgis.js";
+
+test("webgisdr paths are doubled the way Esri writes them", () => {
+  const b = backupSnapshot(newGame(31));
+  assert.equal(b.raw.BACKUP_LOCATION, String.raw`\\\\fileserver\\wgbackups`);
+  assert.equal(b.properties.BACKUP_LOCATION, String.raw`\\fileserver\wgbackups`);
+  assert.deepEqual(b.backups, []);
+  assert.equal(b.properties.PORTAL_ADMIN_PASSWORD_ENCRYPTED, "false");
+});
+
+test("an export writes a dated .webgissite, encrypts the password and is read back as a run", () => {
+  const s = newGame(32);
+  assert.ok(exportNow(s));
+  const b = backupSnapshot(s);
+  assert.match(b.backups[0].name, /^20260105-060000-UTC-BACKUP\.webgissite$/);
+  assert.equal(b.raw.PORTAL_ADMIN_PASSWORD_ENCRYPTED, "true");
+  assert.equal(b.runs[0].status, "success");
+  assert.ok(b.runs[0].backup_location.endsWith(b.backups[0].name));
+});
+
+test("an export fails by component when the data store is down, and on a full share", () => {
+  const s = newGame(33);
+  SCENARIOS.find((x) => x.id === "datastore_down").start(s);
+  assert.equal(exportNow(s), false);
+  const run = backupSnapshot(s).runs[0];
+  assert.deepEqual(run.components.filter((c) => c.status === "failure").map((c) => [c.name, c.store_type]), [["ArcGIS Data Store", "relational"]]);
+  ACTIONS.DST002[0].apply(s);
+  SCENARIOS.find((x) => x.id === "wg_share_full").start(s);
+  assert.equal(backupSnapshot(s).runs.at(-1).status, "failure");
+  assert.equal(backupSnapshot(s).backups.length, 0);
+  ACTIONS.BAK011[0].apply(s);
+  assert.equal(backupSnapshot(s).backups.length, 1);
+});
+
+test("single backslashes break exports until they are doubled again", () => {
+  const s = newGame(34);
+  SCENARIOS.find((x) => x.id === "wg_tidied_paths").start(s);
+  assert.equal(exportNow(s), false);
+  assert.match(s.arcgis.webgisdr.runs.at(-1).messages, /does not exist/);
+  ACTIONS.BAK003[0].apply(s);
+  assert.ok(exportNow(s));
+});
+
+test("the nightly task runs at 02:00 only when scheduled, and keeps seven backups", () => {
+  const s = newGame(35);
+  const logs = [];
+  ACTIONS.BAK010[1].apply(s);
+  for (let i = 0; i < 24 * 9; i++) { s.tick += 1; webgisdrTick(s, (e) => logs.push(e)); }
+  assert.equal(s.arcgis.webgisdr.backups.length, 7);
+  assert.equal(logs.length, 9);
+  SCENARIOS.find((x) => x.id === "wg_schedule_lost").start(s);
+  const n = s.arcgis.webgisdr.runs.length;
+  for (let i = 0; i < 48; i++) { s.tick += 1; webgisdrTick(s, () => {}); }
+  assert.equal(s.arcgis.webgisdr.runs.length, n);
+});

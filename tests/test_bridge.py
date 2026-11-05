@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -52,12 +52,15 @@ def test_fresh_game_findings_come_from_rdsops(catalog):
     assert by_code["INV002"]["severity"] == "FAIL"  # the game starts with a public instance
     assert {f["source"] for f in findings} == {
         "inventory", "server-health", "services", "logs", "portal-health", "datastore",
-        "health", "maintenance", "compat"}
+        "backup-check", "health", "maintenance", "compat"}
     assert by_code["SRV006"]["severity"] == "WARN"  # fresh installs ship a self-signed certificate
     # one portal machine and one data store machine: worth knowing, not broken
     assert by_code["PTL003"]["severity"] == "INFO" and "PTL007" not in by_code
     assert {f["code"] for f in findings if f["source"] == "datastore" and f["severity"] == "INFO"} == {"DST003"}
     assert by_code["PTL008"]["severity"] == "OK"
+    # nobody has run WebGISDR yet, and its password is still plain text
+    assert by_code["BAK010"]["severity"] == "FAIL" and by_code["BAK004"]["severity"] == "WARN"
+    assert by_code["BAK001"]["severity"] == "OK" and "BAK003" not in by_code
     assert all(set(f) >= {"code", "severity", "title", "detail", "evidence"} for f in findings)
 
 
@@ -116,3 +119,8 @@ def test_data_store_failover_keeps_hosted_layers_up(catalog):
                       "status": "Started", "health": "Healthy", "accepting": True}]
     ds = [f for f in evaluate(snap) if f["source"] == "datastore"]
     assert max(RANK[f["severity"]] for f in ds) == RANK["WARN"]
+
+
+def test_backup_check_never_echoes_the_game_password(catalog):
+    text = json.dumps(evaluate(catalog["fresh"]))
+    assert "plain-text-in-game" not in text

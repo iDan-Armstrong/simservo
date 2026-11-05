@@ -15,7 +15,7 @@ from datetime import datetime
 import egisops
 import rdsops
 from egisops import logs as eglogs
-from egisops import datastore, portal, server, services
+from egisops import backup, datastore, portal, server, services
 from rdsops import compat, drill, health, inventory, maintenance
 
 
@@ -136,6 +136,26 @@ def _datastore(d: dict) -> datastore.DataStoreSnapshot:
     return datastore.DataStoreSnapshot(d["base_url"], stores, d.get("errors", []))
 
 
+def _backup(d: dict) -> backup.BackupSnapshot:
+    return backup.BackupSnapshot(
+        properties_path=d.get("properties_path"),
+        properties=d.get("properties", {}),
+        raw=d.get("raw", {}),
+        backups_dir=d.get("backups_dir"),
+        backups=None if d.get("backups") is None else [
+            backup.BackupFile(b["name"], _dt(b["modified"]), b["size"]) for b in d["backups"]],
+        runs=[backup.RunResult(
+            path=r["path"], written=_dt(r.get("written")), operation=r.get("operation"),
+            status=r.get("status"), backup_location=r.get("backup_location"),
+            elapsed=r.get("elapsed"), messages=r.get("messages", ""),
+            components=tuple(backup.Component(c["name"], c["status"], c.get("store_type"),
+                                              c.get("url"), c.get("messages", ""))
+                             for c in r.get("components", [])))
+              for r in d.get("runs", [])],
+        errors=d.get("errors", []),
+    )
+
+
 def _logs(d: dict) -> eglogs.LogSnapshot:
     return eglogs.LogSnapshot(
         hours=d.get("hours", 24),
@@ -174,6 +194,8 @@ def evaluate(snapshot_json: str) -> str:
         out += _tag(portal.evaluate(_portal(s["portal"]), _dt(s["now"])), "portal-health")
     if s.get("datastore"):
         out += _tag(datastore.evaluate(_datastore(s["datastore"]), _dt(s["now"])), "datastore")
+    if s.get("backups"):
+        out += _tag(backup.evaluate(_backup(s["backups"]), _dt(s["now"])), "backup-check")
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")
