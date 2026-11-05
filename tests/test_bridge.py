@@ -14,6 +14,7 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "site" / "py"))
 
+import egisops  # noqa: E402
 import rdsops  # noqa: E402
 import simservo_bridge  # noqa: E402
 
@@ -29,9 +30,11 @@ def catalog():
 
 @pytest.fixture(scope="module")
 def rdsops_codes():
-    src = pathlib.Path(rdsops.__file__).parent
-    text = "".join(p.read_text() for p in src.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL)\d{3})"', text))
+    """Finding codes defined in the real tools (rdsops and egisops)."""
+    text = ""
+    for pkg in (rdsops, egisops):
+        text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -47,7 +50,9 @@ def test_fresh_game_findings_come_from_rdsops(catalog):
     findings = evaluate(catalog["fresh"])
     by_code = {f["code"]: f for f in findings}
     assert by_code["INV002"]["severity"] == "FAIL"  # the game starts with a public instance
-    assert {f["source"] for f in findings} == {"inventory", "health", "maintenance", "compat"}
+    assert {f["source"] for f in findings} == {
+        "inventory", "server-health", "health", "maintenance", "compat"}
+    assert by_code["SRV006"]["severity"] == "WARN"  # fresh installs ship a self-signed certificate
     assert all(set(f) >= {"code", "severity", "title", "detail", "evidence"} for f in findings)
 
 
@@ -71,7 +76,7 @@ def test_each_scenario_raises_what_it_teaches(catalog):
 
 def test_self_test_reports_real_failures():
     out = simservo_bridge.self_test()
-    assert f"rdsops {rdsops.__version__}" in out
+    assert f"rdsops {rdsops.__version__}" in out and f"egisops {egisops.__version__}" in out
     assert "CMP003" in out and "FAIL" in out
 
 

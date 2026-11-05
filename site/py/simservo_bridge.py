@@ -12,7 +12,9 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import egisops
 import rdsops
+from egisops import server
 from rdsops import compat, drill, health, inventory, maintenance
 
 
@@ -68,6 +70,24 @@ def _instance(i: dict) -> inventory.InstanceFacts:
     return inventory.InstanceFacts(**i)
 
 
+def _server(d: dict) -> server.ServerSnapshot:
+    c = d.get("certificate")
+    return server.ServerSnapshot(
+        base_url=d["base_url"],
+        health_status=d.get("health_status"),
+        health_success=d.get("health_success"),
+        full_version=d.get("full_version"),
+        licensed=d.get("licensed"),
+        machines=[server.Machine(m["name"], m["configured"], m.get("realtime"))
+                  for m in d.get("machines", [])],
+        licenses=[server.LicenseItem(x["name"], x["can_expire"], _dt(x.get("expires")))
+                  for x in d.get("licenses", [])],
+        certificate=server.Certificate(c["host"], c["subject"], c["issuer"],
+                                       _dt(c["not_after"]), c["trusted"]) if c else None,
+        errors=d.get("errors", []),
+    )
+
+
 def _tag(findings, source):
     out = []
     for f in findings:
@@ -85,6 +105,8 @@ def evaluate(snapshot_json: str) -> str:
         inventory.posture_findings(_instance(s["instance"]), production=s.get("production", False)),
         "inventory",
     )
+    if s.get("server"):
+        out += _tag(server.evaluate(_server(s["server"]), _dt(s["now"])), "server-health")
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")
@@ -154,11 +176,11 @@ def drill_evaluate(payload_json: str) -> str:
 
 def self_test() -> str:
     """Run during the setup wizard: proves the real rules engine is loaded and answering."""
-    lines = [f"rdsops {rdsops.__version__} loaded"]
+    lines = [f"rdsops {rdsops.__version__} loaded", f"egisops {egisops.__version__} loaded"]
     for f in compat.check("16.4", "12.1", "3.5.3"):
         lines.append(f"[{f.severity.name:<4}] {f.code}  {f.title}")
     return "\n".join(lines)
 
 
 def version() -> str:
-    return rdsops.__version__
+    return f"rdsops {rdsops.__version__}, egisops {egisops.__version__}"

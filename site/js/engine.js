@@ -84,6 +84,7 @@ export function newGame(seed = 1, callsign = "OPS-1") {
       lost: [], // tables dropped by accident, waiting for a restore
     },
     drills: { history: [], last: null },
+    arcgis: newSite(),
   };
 }
 
@@ -109,6 +110,10 @@ export function usedBytes(s) {
 export function freeBytes(s) {
   return s.instance.allocatedGb * GIB - usedBytes(s);
 }
+
+import { newSite, serverSnapshot, siteUp } from "./arcgis.js";
+
+export { siteUp };
 
 export function isDown(s) {
   return s.instance.status !== "available";
@@ -140,7 +145,8 @@ export function step(s, rand) {
     inst.downUntil = 0;
     notes.push({ kind: "recover", text: "Instance is back: status available." });
   }
-  if (isDown(s)) {
+  // Users see a service as down if either the database or ArcGIS Server is down.
+  if (isDown(s) || !siteUp(s)) {
     s.uptime.down += 1;
     s.budget -= s.revenuePerHour; // lost business while down
   } else {
@@ -228,6 +234,8 @@ export function snapshot(s, { production = false } = {}) {
   };
   const out = {
     production,
+    now: isoAt(s.tick),
+    server: s.arcgis ? serverSnapshot(s) : undefined,
     instance: facts,
     storage: { free_bytes: Math.max(0, Math.round(freeBytes(s))), allocated_gb: inst.allocatedGb, max_allocated_gb: inst.maxAllocatedGb },
     compat: { engine_version: inst.engineVersion, arcgis: inst.arcgis, postgis_version: inst.postgis },

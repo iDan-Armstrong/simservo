@@ -7,6 +7,7 @@ import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
 import { XP, checkAchievements, checkQuests } from "./progression.js";
+import { addMachine, ensureSite, siteTick } from "./arcgis.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -14,13 +15,13 @@ const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
 export function incidentKey(f) {
   const e = f.evidence || {};
   if (f.code === "HLT006") return `HLT006:${(f.title.match(/slot (\S+):/) || [])[1]}`;
-  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || (e.indexes ? e.indexes.join("|") : "");
+  const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.license || (e.indexes ? e.indexes.join("|") : "");
   return `${f.code}:${id}`;
 }
 
 export function sourcesFor(level) {
   const f = features(level);
-  return new Set(["inventory", f.health && "health", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
+  return new Set(["inventory", f.health && "health", f.server && "server-health", f.maintenance && "maintenance", f.compat && "compat"].filter(Boolean));
 }
 
 export class Game {
@@ -29,6 +30,7 @@ export class Game {
   constructor({ state, rules, evaluate, seed = 1, forceTrollzilla = false }) {
     this.s = state || newGame(seed);
     ensureBackupState(this.s);
+    ensureSite(this.s);
     this.rules = rules || { evaluate };
     this.evaluate = this.rules.evaluate;
     this.rand = rng((this.s.seed * 7919 + this.s.tick) >>> 0);
@@ -59,6 +61,7 @@ export class Game {
     const s = this.s;
     for (const n of step(s, this.rand)) this.log(n);
     backupTick(s);
+    siteTick(s, (e) => this.log(e));
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -167,6 +170,7 @@ export class Game {
     if (lvl > s.level) {
       const from = s.level;
       s.level = lvl;
+      if (features(lvl).secondMachine) addMachine(s);
       this.log({ kind: "level", text: `Level ${lvl}!` });
       this.emit("level", { from, to: lvl });
     }

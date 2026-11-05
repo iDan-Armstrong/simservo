@@ -26,6 +26,7 @@ try {
   const term = await page.textContent("#wiz-term");
   if (!/rdsops \d+\.\d+\.\d+ loaded/.test(term)) fail("self-test did not report the rdsops version");
   if (!term.includes("CMP003")) fail("self-test did not run compat.check");
+  if (!/egisops \d+\.\d+\.\d+ loaded/.test(term)) fail("self-test did not load egisops");
   if (process.env.SHOTS) await page.screenshot({ path: "test-results/wizard.png" });
 
   await page.click("#wiz-go");
@@ -55,6 +56,21 @@ try {
     await page.evaluate(() => { const m = document.getElementById("modal"); m.classList.add("hidden"); });
     await page.screenshot({ path: "test-results/game.png" });
   }
+
+  // ArcGIS Server department through the real egisops server-health
+  await page.evaluate(() => { const g = window.simservo; g.s.level = 4; g.s.xp = Math.max(g.s.xp, 600); g.s.pending = null; document.querySelector("#btn-scan").click(); });
+  const srv = await page.$$eval("#findings .finding", (els) => els.map((e) => e.querySelector(".code").textContent + " " + e.querySelector(".sev").textContent));
+  if (!srv.includes("SRV006 WARN")) fail(`expected SRV006 WARN for the default self-signed certificate, got ${srv.join(", ")}`);
+  await page.click("#findings .finding:has(.code:text-is('SRV006'))");
+  await page.click("#findings .finding.open button[data-a='replace_self_signed']");
+  const fixed = await page.evaluate(() => {
+    window.simservo.tick(); window.simservo.tick();
+    document.querySelector("#btn-scan").click();
+    return { trusted: window.simservo.s.arcgis.cert.trusted, codes: window.simservo.findings.filter((f) => f.source === "server-health").map((f) => `${f.code} ${f.severity}`) };
+  });
+  console.log("server-health:", fixed.codes.join(", "));
+  if (!fixed.trusted || fixed.codes.includes("SRV006 WARN")) fail("certificate replacement did not clear SRV006");
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/arcgis.png" });
 
   // Restore drill through the real rdsops drill.plan / drill.evaluate
   await page.evaluate(() => { const g = window.simservo; g.s.level = 6; g.s.xp = Math.max(g.s.xp, 1700); g.s.instance.backupRetention = 7; g.s.pending = null; document.querySelector("#btn-scan").click(); });

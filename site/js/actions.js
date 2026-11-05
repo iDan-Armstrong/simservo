@@ -206,6 +206,74 @@ export const ACTIONS = {
   ],
 };
 
+const ONE_DAY = 24;
+const site = (s) => s.arcgis;
+
+Object.assign(ACTIONS, {
+  SRV001: [
+    {
+      id: "start_all_machines", label: "Start ArcGIS Server on every machine", hours: 1, cost: 0,
+      available: (s) => site(s).licensed,
+      command: () => "Windows: Start-Service 'ArcGIS Server'   Linux: <install>/startserver.sh",
+      apply(s) { for (const m of site(s).machines) { m.realtime = "STARTED"; m.configured = "STARTED"; } },
+    },
+  ],
+  SRV002: [
+    {
+      id: "authorize", label: "Authorize with the renewed license file", hours: 1, cost: 0,
+      command: () => "<install>/tools/authorizeSoftware -f renewed.ecp, then restart ArcGIS Server",
+      apply(s) {
+        const a = site(s);
+        for (const l of a.licenses) l.expiresTick = s.tick + 365 * ONE_DAY;
+        a.licensed = true;
+        for (const m of a.machines) { m.realtime = "STARTED"; m.configured = "STARTED"; }
+        s.counters.licenseRenewals = (s.counters.licenseRenewals || 0) + 1;
+      },
+    },
+  ],
+  SRV003: [
+    {
+      id: "start_machine", label: "Start the machine", hours: 0, cost: 0,
+      available: (s) => site(s).licensed,
+      command: (f, s) => `POST https://${site(s).host}/arcgis/admin/machines/${(f.evidence || {}).machine}/start  (or Start-Service 'ArcGIS Server' on the host)`,
+      apply(s, f) {
+        const m = site(s).machines.find((x) => x.name === (f.evidence || {}).machine);
+        if (m) { m.realtime = "STARTED"; m.configured = "STARTED"; }
+        s.counters.machinesStarted = (s.counters.machinesStarted || 0) + 1;
+      },
+    },
+  ],
+  SRV004: [
+    {
+      id: "renew_license", label: "Renew the license from My Esri and authorize", hours: 1, cost: 0,
+      command: () => "My Esri > Licensing > download the .ecp, then authorizeSoftware -f <file>.ecp",
+      apply(s) {
+        const a = site(s);
+        for (const l of a.licenses) l.expiresTick = Math.max(l.expiresTick, s.tick + 365 * ONE_DAY);
+        s.counters.licenseRenewals = (s.counters.licenseRenewals || 0) + 1;
+      },
+    },
+  ],
+  SRV005: [
+    {
+      id: "renew_cert", label: "Renew the CA-signed certificate and import it", hours: 1, cost: 40,
+      command: (f, s) => `Import the new certificate on the web adaptor host (IIS / Tomcat) for ${site(s).host}, then update the site's SSL certificate`,
+      apply(s) { const c = site(s).cert; c.notAfterTick = s.tick + 200 * ONE_DAY; c.trusted = true; c.issuer = "CN=Example Issuing CA, O=Example CA"; },
+    },
+  ],
+  SRV006: [
+    {
+      id: "replace_self_signed", label: "Replace the self-signed certificate with a CA-signed one", hours: 1, cost: 40,
+      command: (f, s) => `Request a certificate for ${site(s).host} from your CA, import it on the web adaptor host, and bind it to 443`,
+      apply(s) {
+        const c = site(s).cert;
+        c.trusted = true; c.issuer = "CN=Example Issuing CA, O=Example CA"; c.notAfterTick = s.tick + 200 * ONE_DAY;
+        s.counters.trustedCert = (s.counters.trustedCert || 0) + 1;
+      },
+    },
+  ],
+});
+
 export function actionsFor(finding, s) {
   return (ACTIONS[finding.code] || []).filter((a) => !a.available || a.available(s));
 }

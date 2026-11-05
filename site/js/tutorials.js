@@ -11,6 +11,13 @@ export const LINKS = {
   rdsopsDrill: { title: "Runbook: restore drill (rdsops restore-drill)", url: `${RDSOPS}/blob/main/docs/runbooks/restore-drill.md` },
   awsPitrCli: { title: "AWS CLI: restore-db-instance-to-point-in-time", url: "https://docs.aws.amazon.com/cli/latest/reference/rds/restore-db-instance-to-point-in-time.html" },
   awsSnapshotsMgmt: { title: "AWS: Managing automated backups", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ManagingAutomatedBackups.html" },
+  egisops: { title: "arcgis-enterprise-ops: the real ArcGIS Server checks behind this department", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops" },
+  egisopsAdr3: { title: "ADR 0003: built from Esri's documentation until a live site", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0003-docs-based-until-a-live-site.md" },
+  esriHealth: { title: "Esri REST: Health Check", url: "https://developers.arcgis.com/rest/services-reference/enterprise/health-check/" },
+  esriMachines: { title: "Esri REST: Machines", url: "https://developers.arcgis.com/rest/enterprise-administration/server/machines/" },
+  esriMachineStatus: { title: "Esri REST: Status - Machine", url: "https://developers.arcgis.com/rest/enterprise-administration/server/status/" },
+  esriLicenses: { title: "Esri REST: Licenses", url: "https://developers.arcgis.com/rest/enterprise-administration/server/licenses/" },
+  esriToken: { title: "Esri REST: Generate Token", url: "https://developers.arcgis.com/rest/enterprise-administration/server/generatetoken/" },
   rdsopsGdb: { title: "Enterprise geodatabase on RDS: setup notes", url: `${RDSOPS}/blob/main/docs/geodatabase-on-rds.md` },
   awsRds: { title: "AWS: What is Amazon RDS?", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html" },
   awsVpc: { title: "AWS: Working with a DB instance in a VPC (public access)", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html" },
@@ -112,8 +119,18 @@ export const TUTORIALS = {
     ],
   },
   "level-4": {
-    title: "Level 4: Slots, duplicates and doors",
+    title: "Level 4: ArcGIS Server joins the watch, plus slots, duplicates and doors",
     cards: [
+      {
+        heading: "egisops server-health",
+        body: "Your ArcGIS Server site is now scanned by a second real tool. It asks the public health check the way a load balancer would, compares each machine's real-time state with what it should be, finds the license that expires soonest, and reads the TLS certificate straight from the connection.",
+        links: L("egisops", "esriHealth", "esriMachineStatus"),
+      },
+      {
+        heading: "Self-signed certificates",
+        body: "A fresh ArcGIS Server ships with a self-signed certificate so it can start at all. Browsers, ArcGIS Pro and federation do not trust it. Replacing it with a CA-signed certificate is one of the first jobs on a new site, and certificates expire, so it comes back.",
+        links: L("esriMachines", "egisopsAdr3"),
+      },
       {
         heading: "Replication slots",
         body: "A logical replication slot keeps every byte of WAL its consumer has not read. If the consumer is gone (a deleted migration task, a blue/green leftover), the slot quietly fills the disk.",
@@ -211,6 +228,22 @@ export const TUTORIALS = {
       },
     ],
   },
+};
+
+TUTORIALS["level-41"] = {
+  title: "Level 41: A second machine",
+  cards: [
+    {
+      heading: "Multi-machine sites",
+      body: "Your site now has two ArcGIS Server machines behind the web adaptor. If one stops, the health check still passes because the other serves, but half your capacity is gone. server-health reports each machine separately for exactly that reason.",
+      links: [LINKS.esriMachines, LINKS.esriMachineStatus, LINKS.esriHealth],
+    },
+    {
+      heading: "Renewals on a calendar",
+      body: "Licenses and certificates expire on dates you can see a year ahead. The admins who never have an outage over them put the dates in a calendar and renew at 30 days, not at zero.",
+      links: [LINKS.esriLicenses, LINKS.esriToken],
+    },
+  ],
 };
 
 TUTORIALS["level-31"] = {

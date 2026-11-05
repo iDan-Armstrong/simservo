@@ -45,6 +45,10 @@ function renderMap(game) {
   const color = down ? "var(--fail)" : "var(--ok)";
   const shield = inst.public ? "var(--fail)" : "var(--ok)";
   const storm = s.db.extraConnections > 0;
+  const ags = s.arcgis;
+  const machinesUp = ags.machines.filter((m) => m.realtime === "STARTED").length;
+  const agsUp = machinesUp > 0;
+  const agsColor = agsUp ? "var(--cyan)" : "var(--fail)";
   const standby = inst.multiAz
     ? `<g><rect x="300" y="250" width="100" height="56" rx="8" fill="#120a2a" stroke="var(--cyan)" stroke-dasharray="4 3"/>
        <text x="350" y="274" fill="var(--cyan)" font-size="11" text-anchor="middle">standby</text>
@@ -62,12 +66,13 @@ function renderMap(game) {
     <g><path d="M160 58 l24 8 v18 c0 14 -12 22 -24 26 c-12 -4 -24 -12 -24 -26 v-18 z" fill="#120a2a" stroke="${shield}" stroke-width="2"/>
        <text x="160" y="122" fill="${shield}" font-size="10" text-anchor="middle">${inst.public ? "PUBLIC" : "private"}</text></g>
     <line x1="118" y1="80" x2="134" y2="80" stroke="var(--dim)" marker-end="url(#arr)"/>
-    <g><rect x="230" y="50" width="150" height="66" rx="8" fill="#120a2a" stroke="var(--cyan)"/>
-       <text x="305" y="74" fill="var(--cyan)" font-size="11" text-anchor="middle">ArcGIS Server</text>
-       <text x="305" y="92" fill="var(--dim)" font-size="10" text-anchor="middle">feature + map services</text>
-       <text x="305" y="106" fill="${storm ? "var(--warn)" : "var(--dim)"}" font-size="10" text-anchor="middle">${storm ? "LOAD SPIKE" : "normal load"}</text></g>
+    <g><rect x="230" y="44" width="150" height="78" rx="8" fill="#120a2a" stroke="${agsColor}" stroke-width="${agsUp ? 1 : 2}"/>
+       <text x="305" y="64" fill="${agsColor}" font-size="11" text-anchor="middle">ArcGIS Server ${esc(ags.version)}</text>
+       <text x="305" y="80" fill="${machinesUp === ags.machines.length ? "var(--dim)" : "var(--fail)"}" font-size="10" text-anchor="middle">${machinesUp}/${ags.machines.length} machine${ags.machines.length > 1 ? "s" : ""} up${ags.licensed ? "" : "  UNLICENSED"}</text>
+       <text x="305" y="95" fill="${ags.cert.trusted ? "var(--ok)" : "var(--warn)"}" font-size="10" text-anchor="middle">${ags.cert.trusted ? "trusted TLS" : "self-signed TLS"}</text>
+       <text x="305" y="110" fill="${storm ? "var(--warn)" : "var(--dim)"}" font-size="10" text-anchor="middle">${storm ? "LOAD SPIKE" : "normal load"}</text></g>
     <line x1="186" y1="80" x2="228" y2="80" stroke="var(--dim)" marker-end="url(#arr)"/>
-    <line x1="305" y1="118" x2="230" y2="168" stroke="var(--dim)" marker-end="url(#arr)"/>
+    <line x1="305" y1="124" x2="230" y2="168" stroke="var(--dim)" marker-end="url(#arr)"/>
     <g class="${down ? "pulse" : ""}"><rect x="110" y="170" width="180" height="78" rx="10" fill="#120a2a" stroke="${color}" stroke-width="2"/>
        <text x="200" y="194" fill="${color}" font-size="12" text-anchor="middle">${esc(inst.identifier)}</text>
        <text x="200" y="211" fill="var(--ink)" font-size="10" text-anchor="middle">PostgreSQL ${esc(inst.engineVersion)} / PostGIS ${esc(inst.postgis)}</text>
@@ -91,6 +96,7 @@ function renderMap(game) {
   const act = s.scenarios.active.map((a) => a.id.replace(/_/g, " "));
   $("status-line").textContent = down
     ? `Instance ${inst.status}. Health and maintenance scans cannot connect.`
+    : !agsUp ? "ArcGIS Server is down: no maps are being served."
     : act.length ? `Ongoing: ${act.join(", ")}` : "All quiet.";
 }
 

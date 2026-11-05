@@ -1,4 +1,4 @@
-// Loads Pyodide and the real rdsops wheel, both served from this site, and reports real
+// Loads Pyodide and the real rdsops and egisops wheels, all served from this site, and reports real
 // byte counts so the setup wizard's progress bars are honest.
 
 async function fetchWithProgress(url, onBytes) {
@@ -63,12 +63,18 @@ export async function bootPython({ base = "./", onStage = () => {} } = {}) {
   const pyodide = await loadPyodide({ indexURL: pyBase });
   onStage("flash", { state: "done", python: pyodide.runPython("import sys; sys.version.split()[0]") });
 
-  // 3. Rules engine: the rdsops wheel, unpacked into site-packages, plus the bridge.
-  const wheel = await fetchWithProgress(`${base}vendor/${manifest.wheel}`, (loaded, total) =>
-    onStage("rules", { loaded, total: total || manifest.wheelBytes || loaded })
-  );
+  // 3. Rules engines: the real rdsops and egisops wheels, unpacked into site-packages.
   const sitePackages = pyodide.runPython("import site; site.getsitepackages()[0]");
-  pyodide.unpackArchive(wheel, "wheel", { extractDir: sitePackages });
+  const wheels = manifest.wheels;
+  const totalBytes = wheels.reduce((a, w) => a + w.bytes, 0);
+  let done = 0;
+  for (const w of wheels) {
+    const buf = await fetchWithProgress(`${base}vendor/${w.file}`, (loaded) =>
+      onStage("rules", { loaded: done + loaded, total: totalBytes })
+    );
+    done += buf.byteLength;
+    pyodide.unpackArchive(buf, "wheel", { extractDir: sitePackages });
+  }
   const bridgeSrc = await (await fetch(`${base}py/simservo_bridge.py`)).text();
   pyodide.FS.writeFile(`${sitePackages}/simservo_bridge.py`, bridgeSrc);
   const bridge = pyodide.pyimport("simservo_bridge");

@@ -6,9 +6,10 @@
 A server administration training game where the rules are not made up. You run a small
 GIS shop (an ArcGIS Server site and an Amazon RDS for PostgreSQL database holding an
 enterprise geodatabase) through business days, accidents, attacks, outages, and the
-occasional Trollzilla. Every warning in the game comes from
-[rdsops](https://github.com/iDan-Armstrong/rds-geodatabase-ops), a real administration
-tool, running inside the page through Pyodide.
+occasional Trollzilla. Every warning in the game comes from real administration tools,
+[rdsops](https://github.com/iDan-Armstrong/rds-geodatabase-ops) for the database and
+[egisops](https://github.com/iDan-Armstrong/arcgis-enterprise-ops) for ArcGIS Server,
+running inside the page through Pyodide.
 
 **Play:** https://idan-armstrong.github.io/simservo/
 
@@ -16,7 +17,7 @@ tool, running inside the page through Pyodide.
 
 | Real | Simulated |
 | --- | --- |
-| The checks: rdsops `inventory`, `health`, `maintenance`, `compat` and `restore-drill`, at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
+| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill` and egisops `server-health`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
 | Finding codes, severities, thresholds and fix text | The numbers: connections, dead rows, WAL, storage, transaction ID age |
 | The commands each action shows (AWS CLI, SQL, console steps) | Time (one tick is one game hour) and money |
 | Tutorial links to AWS, Esri, PostgreSQL and PostGIS docs, checked by CI | Scenarios, quests, XP and achievements |
@@ -31,14 +32,17 @@ the real evaluators. The game never decides on its own that something is wrong.
 
 The page opens with a configuration wizard styled as a controller setup. The
 "firmware" it downloads is real: Pyodide (CPython compiled to WebAssembly, about 12 MB)
-and the rdsops wheel, both served from this site, with real byte counts on the progress
+and the rdsops and egisops wheels, all served from this site, with real byte counts on the progress
 bars. The last wizard step is a live self-test: the rules engine is asked about
 PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Tier 1 (Fundamentals, levels 1 to 10) and Tier 4 (Backup
-  and Restore, levels 31 to 40) are playable now, because their real tools exist.
+- 100 levels in ten tiers. Tier 1 (Fundamentals), Tier 4 (Backup and Restore) and
+  Tier 5 (ArcGIS Server) are playable now, because their real tools exist.
+- ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
+  that do not come back after patch night, and licenses that run out. The real
+  `egisops server-health` scores it. Level 41 adds a second machine.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -55,6 +59,7 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 ```bash
 npm ci                 # Pyodide, self-hosted
 npm run rdsops         # builds the rdsops wheel at the commit in RDSOPS_REF
+npm run egisops        # builds the egisops wheel at the commit in EGISOPS_REF
 npm run build          # copies both into site/vendor
 npm run serve          # http://localhost:8080
 ```

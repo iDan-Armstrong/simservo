@@ -78,7 +78,7 @@ async function runWizard() {
     },
   });
   await sleep(500);
-  say(`Self-test passed: rdsops ${engine.rdsopsVersion} found the problems it should.`);
+  say(`Self-test passed: ${engine.rdsopsVersion} loaded; the rules engine found the problems it should.`);
   stepState("selftest", "done");
   stepState("callsign", "active");
   bar(100, "ready");
