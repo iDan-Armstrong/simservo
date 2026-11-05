@@ -15,8 +15,10 @@ from datetime import datetime
 import egisops
 import rdsops
 from egisops import logs as eglogs
+from egisops import incident as egincident
+from egisops import security as egsecurity
 from egisops import backup, datastore, portal, server, services, stack
-from rdsops import compat, drill, fleet, health, inventory, maintenance
+from rdsops import compat, drill, fleet, health, incident, inventory, maintenance, security
 
 
 def _dt(value):
@@ -202,6 +204,34 @@ def _logs(d: dict) -> eglogs.LogSnapshot:
     )
 
 
+def _security(d: dict) -> security.SecuritySnapshot:
+    return security.SecuritySnapshot(
+        facts=_instance(d["facts"]),
+        region=d.get("region", ""),
+        ca_identifier=d.get("ca_identifier"),
+        cert_valid_till=_dt(d.get("cert_valid_till")),
+        params={k: v for k, v in (d.get("params") or {}).items()},
+        log_exports=d.get("log_exports"),
+        ingress=None if d.get("ingress") is None else [security.OpenRule(**r) for r in d["ingress"]],
+        snapshots=None if d.get("snapshots") is None else [
+            security.SnapshotShare(x["identifier"], x["encrypted"], x["public"], tuple(x.get("accounts", ())))
+            for x in d["snapshots"]
+        ],
+        kms_customer_managed=d.get("kms_customer_managed"),
+        kms_rotation=d.get("kms_rotation"),
+        secret_rotation=d.get("secret_rotation"),
+        non_ssl_connections=d.get("non_ssl_connections"),
+        md5_roles=d.get("md5_roles"),
+        superuser_members=d.get("superuser_members"),
+        public_schema_create=d.get("public_schema_create"),
+    )
+
+
+def _server_security(d: dict) -> egsecurity.ServerSecurity:
+    keys = egsecurity.ServerSecurity.__dataclass_fields__
+    return egsecurity.ServerSecurity(**{k: v for k, v in d.items() if k in keys and k != "certificate"})
+
+
 def _tag(findings, source):
     out = []
     for f in findings:
@@ -237,6 +267,10 @@ def evaluate(snapshot_json: str) -> str:
         out += _tag(fleet.evaluate(_fleet(s["fleet"])), "fleet")
     if s.get("takeover"):
         out += _takeover(s["takeover"])
+    sec = s.get("security")
+    if sec:
+        out += _tag(security.evaluate(_security(sec["rds"]), _dt(s["now"])), "security")
+        out += _tag(egsecurity.evaluate_server(_server_security(sec["server"]), _dt(s["now"])), "arcgis-security")
     if s.get("health"):
         out += _tag(health.evaluate(_health(s["health"])), "health")
     st = s.get("storage")
@@ -302,6 +336,22 @@ def drill_evaluate(payload_json: str) -> str:
     )
     return json.dumps(_tag(drill.evaluate(result, _request(p["request"])), "restore-drill"),
                       default=str)
+
+
+def incident_playbook(payload_json: str) -> str:
+    """The real rdsops or egisops incident playbook for the game's situation."""
+    p = json.loads(payload_json)
+    ctx = dict(p["context"])
+    for k in ("now", "since", "earliest_restorable"):
+        if k in ctx:
+            ctx[k] = _dt(ctx[k])
+    mod = incident if p["tool"] == "rdsops" else egincident
+    pb = mod.playbook(mod.IncidentContext(**ctx))
+    out = pb.to_dict()
+    out["findings"] = _tag(pb.findings, f"{p['tool']}-incident")
+    for st in out["steps"]:
+        st["is_command"] = mod.is_command(st["command"])
+    return json.dumps(out, default=str)
 
 
 def self_test() -> str:

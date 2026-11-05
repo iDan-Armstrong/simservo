@@ -9,6 +9,7 @@ import { TERMS, annotate, lookup } from "./glossary.js";
 import { CHAPTERS, STEPS, available, backupFresh } from "./campaign.js";
 import * as TK from "./takeover.js";
 import { FIXES } from "./fleet.js";
+import { CISA_MINUTES, TITLES as INC_TITLES, contained, readyToClose } from "./secops.js";
 
 // Native SVG hover title from the glossary, for the network map.
 const svgTitle = (term, extra = "") => `<title>${esc(`${lookup(term).term}: ${lookup(term).def}${extra ? ` ${extra}` : ""}`)}</title>`;
@@ -18,7 +19,7 @@ const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 // Escaped text with glossary terms marked for hover help. Never use for commands.
 const rich = (t) => annotate(esc(t));
 const CLIENT_SOURCES = new Set(["aurora-plan", "client-compat"]);
-const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check", "stack-compat"]);
+const EGISOPS_SOURCES = new Set(["server-health", "services", "logs", "portal-health", "datastore", "backup-check", "stack-compat", "arcgis-security"]);
 const money = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const RANK = { FAIL: 0, WARN: 1, INFO: 2, OK: 3 };
 
@@ -29,6 +30,45 @@ export function renderAll(game, handlers) {
   renderMap(game);
   renderFindings(game, handlers);
   renderSide(game, handlers);
+  renderIncident(game, handlers);
+}
+
+// Stable shuffle so the choices do not give the order away and do not jump around.
+const mix = (id, n) => ((id * 2654435761 + n * 40503) >>> 0) % 1000;
+
+export function renderIncident(game, handlers) {
+  const inc = game.s.secops && game.s.secops.incident;
+  $("incident").classList.toggle("hidden", !inc);
+  if (!inc) return;
+  const lead = !inc.steps.every((st) => st.done || st.phase === "Learn");
+  const cisa = inc.federal
+    ? inc.cisaAt != null
+      ? `<span class="${inc.cisaAt <= CISA_MINUTES ? "ok" : "late"}">CISA reported at minute ${inc.cisaAt}</span>`
+      : `<span class="${inc.minute > CISA_MINUTES ? "late" : ""}">CISA report due in <b>${Math.max(0, CISA_MINUTES - inc.minute)}</b> min</span>`
+    : "";
+  $("inc-title").textContent = `INCIDENT ${inc.id}: ${INC_TITLES[inc.kind]}`;
+  $("inc-meters").innerHTML = `<span>${esc(inc.target)}</span>${inc.federal ? `<span class="late">FEDERAL</span>` : ""}
+    <span>Minute <b>${inc.minute}</b></span>${cisa}
+    <span>Impact <b>${money(Math.round(inc.impact))}</b></span>
+    <span class="${contained(inc) ? "ok" : "late"}">${contained(inc) ? "Contained" : "Attacker active"}</span>
+    <span class="dim">Playbook: ${esc(inc.tool)} incident --kind ${esc(inc.kind)}</span>`;
+  $("inc-alerts").innerHTML = [
+    ...inc.notes.map((t) => `<div class="inc-alert twist">${rich(t)}</div>`),
+    ...inc.penalties.map((p) => `<div class="inc-alert">${rich(p.text)}</div>`),
+  ].join("");
+  const open = inc.steps.filter((st) => !st.done).sort((a, b) => mix(inc.id, a.n) - mix(inc.id, b.n));
+  $("inc-choices").innerHTML = open.map((st) => `<li><button class="btn tiny" data-inc="${st.n}" title="${esc(st.why || "")}" ${st.phase === "Learn" && lead ? "disabled" : ""}>
+      ${st.twist ? `<span class="new">NEW</span>` : ""}${rich(st.title)} <span class="dim">(${st.minutes} min)</span>
+      ${st.command ? `<code>${esc(st.command)}</code>` : ""}</button></li>`).join("")
+    || `<li class="dim small">Every step is done.</li>`;
+  $("inc-done").innerHTML = inc.order.map((n) => {
+    const st = inc.steps[n];
+    return `<li><span class="ph">${esc(st.phase)}</span><span class="txt">${rich(st.title)}</span><span class="min">min ${st.at}</span></li>`;
+  }).join("") || `<li class="dim">Nothing yet. Where do you start?</li>`;
+  $("inc-ready").innerHTML = inc.findings.map((f) => `<li><span class="mini-sev ${f.severity}">${f.severity}</span>${esc(f.code)} ${rich(f.title)}</li>`).join("") || `<li class="dim">Nothing flagged.</li>`;
+  $("inc-close").disabled = !readyToClose(inc);
+  $("inc-close").onclick = () => handlers.incidentClose();
+  $("inc-choices").querySelectorAll("[data-inc]").forEach((b) => b.addEventListener("click", () => handlers.incidentStep(Number(b.dataset.inc))));
 }
 
 function renderHud(game) {

@@ -119,6 +119,28 @@
       <div class="modal-actions" id="modal-actions"></div>
     </div>
   </div>
+  <div id="incident" class="inc-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="inc-title">
+    <div class="inc-card">
+      <div class="inc-head">
+        <h3 id="inc-title"></h3>
+        <div id="inc-meters" class="inc-meters"></div>
+      </div>
+      <div id="inc-alerts"></div>
+      <div class="inc-cols">
+        <div>
+          <h4>Pick the next step</h4>
+          <ol id="inc-choices" class="inc-choices"></ol>
+        </div>
+        <div>
+          <h4>Your response</h4>
+          <ol id="inc-done" class="inc-done"></ol>
+          <h4>Readiness (from the real tool)</h4>
+          <ul id="inc-ready" class="inc-ready"></ul>
+        </div>
+      </div>
+      <div class="modal-actions"><button class="btn primary" id="inc-close" disabled>Close the incident</button></div>
+    </div>
+  </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <div id="troll" class="troll hidden" aria-live="assertive">
     <img src="art/trollzilla.svg" alt="Trollzilla, a cheesy signal-wave monster dripping binary code">

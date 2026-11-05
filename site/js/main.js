@@ -126,6 +126,10 @@ function drain() {
     else if (e.kind === "level") queue.push(() => levelUp(e.from, e.to));
     else if (e.kind === "trollzilla") queue.push(trollzilla);
     else if (e.kind === "fleet" && e.started) queue.push(() => showTutorial("fleet"));
+    else if (e.kind === "secops" && e.incident && !game.s.counters.incidentTutorial) {
+      game.s.counters.incidentTutorial = true;
+      queue.push(() => showTutorial("incident"));
+    }
     else if (e.kind === "fleet" && e.arrival) toast("New site", `${e.arrival} joined your fleet`);
     else if (e.kind === "takeover") queue.push(() => showTutorial(e.finale ? "takeover-finale" : `takeover-${e.chapter}`));
     else if (e.kind === "campaign") queue.push(() => showTutorial(e.finale ? "expansion-finale" : `expansion-${e.chapter}`));
@@ -153,6 +157,7 @@ function trollzilla() {
 }
 
 function frame() {
+  if (game.s.secops && game.s.secops.incident) return; // the world waits while you respond
   game.tick();
   drain();
   renderAll(game, handlers);
@@ -194,6 +199,30 @@ const handlers = {
     drain();
     renderAll(game, handlers);
     writeSave(game.s);
+  },
+  incidentStep(n) {
+    const r = game.incidentStep(n);
+    if (!r.ok) toast("Not yet", r.reason);
+    drain();
+    renderAll(game, handlers);
+    writeSave(game.s);
+  },
+  async incidentClose() {
+    const inc = game.s.secops.incident;
+    const r = game.closeIncident();
+    if (!r.ok) { toast("Not yet", r.reason); return; }
+    renderAll(game, handlers);
+    writeSave(game.s);
+    await withPause(() => modal({
+      title: `Incident ${inc.id} closed`,
+      html: `<p>${inc.minute} minutes. Impact ${r.cost.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 })}. +${r.xp} XP.</p>
+        ${inc.penalties.length ? `<h4>What went wrong</h4><ul>${inc.penalties.map((p) => `<li>${p.text.replace(/</g, "&lt;")}</li>`).join("")}</ul>` : "<p>A clean response.</p>"}
+        ${inc.notes.length ? `<h4>Contingencies</h4><ul>${inc.notes.map((t) => `<li>${t.replace(/</g, "&lt;")}</li>`).join("")}</ul>` : ""}
+        <p class="small dim">Next: the review step's real command is what you run after an incident like this.</p>`,
+      actions: [{ label: "Back to work", value: 1, primary: true }],
+    }));
+    drain();
+    renderAll(game, handlers);
   },
   recover(name) {
     const r = game.recoverTable(name);

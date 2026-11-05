@@ -59,7 +59,7 @@ export const TERMS = [
   { term: "My Esri", def: "Esri's customer website, where organizations download software and license files." },
   { term: "authorizeSoftware", def: "The ArcGIS command-line tool that applies a license file to an installed product." },
   { term: "SEVERE", def: "The highest ArcGIS Server log level: something failed. WARNING and INFO are less serious." },
-  { term: "token", def: "A short-lived pass the ArcGIS admin API gives you after you sign in. Tools send it with each request instead of the password." },
+  { term: "token", also: ["tokens"], def: "A short-lived pass ArcGIS gives you after you sign in. Tools send it with each request instead of the password; whoever holds it can act as you until it expires or the shared key changes." },
 
   // ---------------------------------------------------------------- database
   { term: "PostgreSQL", also: ["Postgres"], def: "A widely used open-source relational database. Here it stores the enterprise geodatabase." },
@@ -94,7 +94,7 @@ export const TERMS = [
   { term: "Amazon RDS", also: ["RDS"], def: "Amazon Relational Database Service: AWS runs the database server (patching, backups, failover) and you manage the database." },
   { term: "AWS CLI", def: "Amazon's command-line tool for managing AWS services from a terminal or script." },
   { term: "VPC", def: "Virtual Private Cloud: your own private network inside AWS. Servers in it are not reachable from the internet unless you allow it." },
-  { term: "security group", def: "An AWS firewall attached to a server or database that lists which sources may connect on which ports." },
+  { term: "security group", also: ["security groups"], def: "An AWS firewall attached to a server or database that lists which sources may connect on which ports. A rule allowing 0.0.0.0/0 on the database port lets the whole internet try." },
   { term: "publicly accessible", also: ["public endpoint", "public access"], def: "An RDS setting that gives the database an address reachable from the internet. ArcGIS should connect from inside the VPC, so it should be off." },
   { term: "Availability Zone", also: ["AZ"], def: "One of several separate data centers in an AWS region, with its own power and network. An outage in one zone does not take down the others." },
   { term: "Multi-AZ", also: ["single-AZ", "Single-AZ"], def: "An RDS option that keeps a synchronized standby copy in a second Availability Zone and fails over to it automatically, in about a minute." },
@@ -133,6 +133,23 @@ export const TERMS = [
   { term: "certificate", also: ["certificates"], def: "A digital document that proves a server's identity for TLS. It is issued by a certificate authority and expires on a set date." },
   { term: "self-signed certificate", also: ["self-signed"], def: "A certificate a server issued to itself. It encrypts traffic, but browsers and ArcGIS Pro do not trust it because no authority vouches for it." },
   { term: "certificate authority", also: ["CA-signed", "CA"], def: "An organization (public or internal) that issues certificates. Clients trust certificates signed by authorities they know." },
+  // ---------------------------------------------------------------- security operations
+  { term: "SCRAM", also: ["scram-sha-256", "SCRAM-SHA-256"], def: "The modern way PostgreSQL stores and checks passwords. Unlike md5, a captured login cannot be replayed. RDS for PostgreSQL 14 and later use it by default." },
+  { term: "md5", def: "PostgreSQL's older password storage. Still accepted on many databases until it is turned off; roles keep md5 hashes until their passwords are set again." },
+  { term: "HSTS", def: "HTTP Strict Transport Security: a header that tells browsers to use HTTPS for a site from then on, even if someone types http." },
+  { term: "URL", def: "A web address. Anything put in a URL can end up in browser history, proxy logs and server logs." },
+  { term: "GET", def: "A web request that puts its data in the URL. Fine for reading public pages; wrong for passwords and tokens, which then land in logs." },
+  { term: "POST", def: "A web request that sends its data in the body instead of the URL. ArcGIS admin calls and token requests should use it." },
+  { term: "shared key", also: ["token shared key"], def: "The secret ArcGIS uses to sign tokens. Changing it ends every token issued with the old one, so everyone signs in again." },
+  { term: "primary site administrator", also: ["PSA"], def: "The account created with an ArcGIS Server site. It is outside the identity store and cannot be locked out, so Esri recommends disabling it once other administrators work." },
+  { term: "services directory", def: "The browsable web page that lists every ArcGIS service. Useful in development; in production it shows anyone what to look at." },
+  { term: "CloudTrail", def: "AWS's record of API calls in an account: who did what, from where, when. The first place to look when something changed." },
+  { term: "incident", also: ["incidents"], def: "A security event that needs a response: someone got in, something was exposed or destroyed. Handled with a playbook, a lead and a timeline." },
+  { term: "playbook", also: ["playbooks"], def: "The ordered steps for one kind of incident. rdsops and egisops print them for your instance or site; they never run them." },
+  { term: "NIST SP 800-61", also: ["NIST"], def: "US government guidance for incident response. Revision 3 (2025) organizes it as detect, respond and recover within the NIST Cybersecurity Framework." },
+  { term: "CISA", def: "The US Cybersecurity and Infrastructure Security Agency. Federal civilian agencies report incidents to it within one hour of identifying them." },
+  { term: "evidence", def: "What shows how an incident happened: snapshots, logs, sessions, the CloudTrail record. Rotating, restoring or rebuilding first can destroy it." },
+  { term: "contain", also: ["containment"], def: "Stopping an incident from getting worse: cutting access, closing the exposure. It comes before cleaning up and recovering." },
   { term: "Esri support matrix", also: ["support matrix", "certified"], def: "Esri's published list of database versions each ArcGIS release supports. Running outside it means Esri support may decline to help." },
 ];
 
@@ -151,6 +168,9 @@ export const CODES = {
   DST: "Data Store (egisops datastore): ArcGIS Data Store validation, machines, standby and backups.",
   STK: "Stack compatibility (egisops stack-compat): Portal, Server, Data Store, the geodatabase and Pro on releases that belong together.",
   FLT: "Fleet (rdsops fleet): every RDS geodatabase across Regions, posture and Esri compat per instance, and drift across them.",
+  SEC: "Security (rdsops security): TLS, password storage, certificates, exposure, snapshots, keys, secrets and the audit trail of the database.",
+  ESC: "ArcGIS security (egisops security): site settings against Esri's serverScan and portalScan checks.",
+  INC: "Incident readiness (rdsops incident, egisops incident): what already limits the response before it starts.",
   BAK: "Site backups (egisops backup-check): the WebGISDR properties file, the newest backup, and the last run.",
 };
 

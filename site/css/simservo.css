@@ -168,7 +168,7 @@ a { color: var(--cyan); }
 .log .stamp { color: var(--dim); margin-right: 8px; }
 .log .fail { color: var(--fail); } .log .warn { color: var(--warn); } .log .xp { color: var(--gold); }
 .log .action { color: var(--neon); } .log .scenario { color: var(--cyan); } .log .outage { color: var(--fail); font-weight: 700; }
-.log .monster { color: var(--pink); font-weight: 700; } .log .good, .log .recover, .log .done { color: var(--ok); }
+.log .monster { color: var(--pink); font-weight: 700; } .log .incident { color: var(--fail); font-weight: 700; } .log .good, .log .recover, .log .done { color: var(--ok); }
 .log .quest, .log .achievement, .log .level { color: var(--pink); }
 
 /* ----------------------------------------------------------- glossary help */
@@ -230,3 +230,30 @@ a { color: var(--cyan); }
 .fleet-list { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
 .fleet-row { border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .fleet-row .row.wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* ---------------------------------------------------------------- incident console */
+.inc-overlay { position: fixed; inset: 0; z-index: 25; background: rgba(20, 0, 8, .82); display: grid; place-items: center; padding: 16px; }
+.inc-card { width: min(1080px, 100%); max-height: 92vh; overflow: auto; background: var(--panel); border: 2px solid var(--fail); border-radius: 12px; padding: 18px; box-shadow: 0 0 60px rgba(255, 77, 94, .35); }
+.inc-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: baseline; }
+.inc-head h3 { font: 13px/1.6 var(--pixel); color: var(--fail); margin: 0; }
+.inc-meters { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+.inc-meters b { color: var(--gold); }
+.inc-meters .late { color: var(--fail); font-weight: 700; }
+.inc-meters .ok { color: var(--ok); }
+.inc-cols { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-top: 10px; }
+@media (max-width: 800px) { .inc-cols { grid-template-columns: 1fr; } }
+.inc-card h4 { color: var(--pink); margin: 10px 0 6px; font-size: 13px; }
+.inc-choices, .inc-done { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.inc-choices button { width: 100%; text-align: left; white-space: normal; line-height: 1.35; }
+.inc-choices .new { color: var(--gold); font-weight: 700; margin-right: 6px; }
+.inc-choices code, .inc-done code { display: block; margin-top: 3px; font: 11px/1.4 var(--mono); color: var(--dim); overflow-wrap: anywhere; }
+.inc-done li { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 12px; display: flex; gap: 6px; align-items: baseline; }
+.inc-done li .txt { flex: 1; }
+.inc-done .ph { color: var(--neon); font-weight: 700; margin-right: 6px; }
+.inc-done .min { color: var(--dim); white-space: nowrap; }
+.inc-ready { padding-left: 0; list-style: none; font-size: 12px; margin: 0; }
+.inc-ready .mini-sev { font-weight: 700; margin-right: 6px; }
+.inc-ready .mini-sev.OK { color: var(--ok); } .inc-ready .mini-sev.WARN { color: var(--warn); } .inc-ready .mini-sev.FAIL { color: var(--fail); } .inc-ready .mini-sev.INFO { color: var(--info); }
+.inc-alert { border: 1px solid var(--fail); color: var(--fail); border-radius: 8px; padding: 6px 8px; font-size: 12px; margin-top: 8px; }
+.inc-alert.twist { border-color: var(--gold); color: var(--gold); }
+

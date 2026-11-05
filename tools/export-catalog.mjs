@@ -68,6 +68,23 @@ const { ensureFleet } = await import("../site/js/fleet.js");
 for (const spec of FA) ensureFleet(fl).members.push({ ...ensureFleet(fl).members[0], encrypted: true, arcgis: "12.1", production: false, engineVersion: "17.7", public: false, deletionProtection: true, backupRetention: 7, iamAuth: true, autoMinor: false, customParams: true, perfInsights: true, multiAz: false, cls: "db.t4g.medium", allocatedGb: 100, work: null, ...spec });
 const fleetSnap = structuredClone(snapshot(fl));
 
+// Security Operations: the posture as found and fully hardened, and the real playbook
+// requests for every incident kind, plain and federal.
+const sec = newGame(15);
+sec.level = 15;
+const SO = await import("../site/js/secops.js");
+const { isoAt } = await import("../site/js/engine.js");
+SO.startSecops(sec);
+const secFound = structuredClone(snapshot(sec));
+const hard = structuredClone(sec);
+hard.instance.public = false;
+for (const [code, list] of Object.entries(SO.SEC_ACTIONS)) for (const a of list) a.apply(hard, { code, title: "" });
+const secHardened = structuredClone(snapshot(hard));
+hard.takeover = { started: 0 };
+const incidents = [...SO.RDSOPS_KINDS, ...SO.EGISOPS_KINDS].flatMap((k) => [false, true].map((fed) => ({
+  kind: k, federal: fed, request: SO.incidentRequest(sec, k, fed, isoAt),
+})));
+
 console.log(JSON.stringify({
   actionCodes: Object.keys(ACTIONS),
   teaches: [...new Set(SCENARIOS.flatMap((x) => x.teaches))],
@@ -76,4 +93,6 @@ console.log(JSON.stringify({
   drill,
   fleet: fleetSnap,
   takeover: { asFound: withNow(asFound), cleared: withNow(cleared), promoted: withNow(promoted) },
+  security: { asFound: secFound, hardened: secHardened },
+  incidents,
 }));

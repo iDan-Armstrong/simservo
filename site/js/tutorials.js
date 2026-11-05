@@ -68,6 +68,16 @@ export const LINKS = {
   esriWgOverview: { title: "Esri: ArcGIS Enterprise backups (what is and is not included)", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/overview-backup-restore-web-gis.html" },
   egisopsAdr6: { title: "ADR 0006: backup-check works on files and never repeats a secret", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0006-backup-check-works-on-files.md" },
   egisopsAdr5: { title: "ADR 0005: portal tokens and data store machine names", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0005-portal-tokens-and-data-store-machines.md" },
+  rdsopsSecurity: { title: "rdsops security and incident (README)", url: `${RDSOPS}#security` },
+  rdsopsIncidents: { title: "Runbook: security incidents on an RDS geodatabase", url: `${RDSOPS}/blob/main/docs/runbooks/security-incidents.md` },
+  rdsopsAdr8: { title: "ADR 0008: incident playbooks print; they never act", url: `${RDSOPS}/blob/main/docs/adr/0008-incident-playbooks-print-never-act.md` },
+  egisopsAdr8: { title: "ADR 0008: security reads settings, never secrets", url: "https://github.com/iDan-Armstrong/arcgis-enterprise-ops/blob/main/docs/adr/0008-security-reads-settings-not-secrets.md" },
+  esriServerScan: { title: "Esri: Scan ArcGIS Server for security best practices", url: "https://doc.esri.com/en/arcgis-enterprise/latest/plan/scan-arcgis-server-for-security-best-practices.html" },
+  esriPortalScan: { title: "Esri: Scan your portal for security best practices", url: "https://doc.esri.com/en/arcgis-enterprise/latest/administer/scan-your-portal-for-security-best-practices.html" },
+  awsScram: { title: "AWS: Using SCRAM for PostgreSQL password encryption", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL_Password_Encryption_configuration.html" },
+  awsSsl: { title: "AWS: Using SSL/TLS to encrypt a connection to a DB instance", url: "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html" },
+  nist80061: { title: "NIST SP 800-61 Rev. 3: Incident Response Recommendations (2025)", url: "https://csrc.nist.gov/pubs/sp/800/61/r3/final" },
+  cisaFederal: { title: "CISA: Federal Incident Notification Guidelines", url: "https://www.cisa.gov/incident-notification-guidelines" },
   esriMaint: { title: "Esri: Enterprise geodatabase maintenance tasks (PostgreSQL)", url: "https://pro.arcgis.com/en/pro-app/latest/help/data/geodatabases/manage-postgresql/enterprise-geodatabase-maintenance.htm" },
 };
 
@@ -484,3 +494,41 @@ export function allLinks() {
   for (const l of Object.values(LINKS)) seen.set(l.url, l.title);
   return [...seen.entries()].map(([url, title]) => ({ url, title }));
 }
+
+TUTORIALS["level-15"] = {
+  title: "Security Operations",
+  cards: [
+    {
+      heading: "Your posture, scored",
+      body: "Two more real checks join your scans. rdsops security looks deeper than inventory: is TLS required, are passwords stored with SCRAM or md5, is the certificate current, is the port open to the internet, are snapshots shared, do keys and secrets rotate, is there an audit trail. egisops security reads the settings Esri's own serverScan checks: HTTPS only, token requests, the services directory, cross-domain access and the primary site administrator.",
+      links: L("rdsopsSecurity", "esriServerScan", "awsScram", "awsSsl"),
+    },
+    {
+      heading: "Attacks follow what is open",
+      body: "From now on, attackers come. What you leave open decides what they try: tokens over GET draw token theft, an enabled primary site administrator draws admin takeovers, md5 passwords draw credential attacks. A hardened site still sees the odd incident, and the database certificate runs out in 20 days whether you are ready or not.",
+      links: L("egisopsAdr8", "esriPortalScan"),
+    },
+    {
+      heading: "Incident response",
+      body: "When an incident lands, the real rdsops incident or egisops incident writes the playbook for it, filled in for your instance or site. You choose the order. The incident clock runs with every step, and the attacker keeps doing damage until you contain it. The rules come from the playbook: keep the evidence it keeps before anything that destroys it, contain before you recover, and leave the review for last. Contingencies happen: an open session after a password change, a second open rule, a certificate rotation that breaks ArcGIS.",
+      links: L("rdsopsIncidents", "rdsopsAdr8", "nist80061"),
+    },
+    {
+      heading: "Federal clients",
+      body: "If an incident hits the Northwind Survey Agency, a federal client in GovCloud, the CISA report is due within one hour of identification. Report what you know early; the investigation can follow. Contractors report through the agency and their contract terms.",
+      links: L("cisaFederal"),
+    },
+  ],
+};
+
+TUTORIALS["incident"] = {
+  title: "Incident",
+  cards: [
+    {
+      heading: "The clock is running",
+      body: "The game is paused while you work. Each step takes incident minutes, and until you contain it the attacker keeps causing damage. Pick the steps in the order you would run them. Nothing here touches a real system; the commands are the ones the real playbook prints.",
+      links: L("rdsopsIncidents", "nist80061"),
+    },
+  ],
+};
+

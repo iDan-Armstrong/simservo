@@ -1,0 +1,2628 @@
+{
+ "admin-account": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC102",
+    "detail": "If its password is known to the attacker, they keep admin access through any identity store change. It is disabled in the playbook.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "The primary site administrator is enabled"
+   }
+  ],
+  "kind": "admin-account",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.example.com/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/sharing/rest/community/users/gisadmin2/disable f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Disable the portal account gisadmin2",
+    "why": "Disabling blocks new sign-ins and keeps the account and its content for the investigation. Do not delete it. Access is cut before the logs are saved because an administrator can clear them."
+   },
+   {
+    "command": "Update the token shared key (server: security/tokens/update; portal: its token settings). You enter a new random key; it is never written here.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Invalidate tokens already issued",
+    "why": "A disabled account's tokens stay valid until they expire. Changing the key ends them all, so every user signs in again."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/security/config/update allowedAdminAccessIPs=<incident team addresses> f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Limit admin access while you work",
+    "why": "Keeps the admin API to the people responding. Undo at the end."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "List what gisadmin2 did",
+    "why": "From the saved logs: sign-ins and addresses, services published, stopped or deleted, permissions changed, data stores registered, users or roles created."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Remove what the attacker added",
+    "why": "Accounts, roles, API keys or app registrations created; services or data stores registered; permissions granted. Keep a record of each before removing it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Reset the credentials that account could read",
+    "why": "Data store and enterprise geodatabase passwords used by registered connections, the primary site administrator, and any service account. For RDS geodatabases, `rdsops incident --kind credentials`."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/security/psa/disable f=json",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Disable the primary site administrator",
+    "why": "It cannot be locked out by the identity store. Re-enable it from the machine only when needed."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Give gisadmin2 back to its owner with a new password and MFA",
+    "why": "Only after the review of what it did is done. If it was a shared admin account, replace it with named accounts."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/security/config/update allowedAdminAccessIPs=<previous value> f=json",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Lift the admin IP restriction set during containment",
+    "why": ""
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "admin-account-federal": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC105",
+    "detail": "The clock starts when the agency's CSIRT, SOC or IT department identifies the incident, not when the investigation ends.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "Federal system: CISA notification due within one hour of identification"
+   }
+  ],
+  "kind": "admin-account",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.nwsa.example/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors report through the agency and their contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan, including privacy officials if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/sharing/rest/community/users/gisadmin2/disable f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Disable the portal account gisadmin2",
+    "why": "Disabling blocks new sign-ins and keeps the account and its content for the investigation. Do not delete it. Access is cut before the logs are saved because an administrator can clear them."
+   },
+   {
+    "command": "Update the token shared key (server: security/tokens/update; portal: its token settings). You enter a new random key; it is never written here.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Invalidate tokens already issued",
+    "why": "A disabled account's tokens stay valid until they expire. Changing the key ends them all, so every user signs in again."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/security/config/update allowedAdminAccessIPs=<incident team addresses> f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Limit admin access while you work",
+    "why": "Keeps the admin API to the people responding. Undo at the end."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "List what gisadmin2 did",
+    "why": "From the saved logs: sign-ins and addresses, services published, stopped or deleted, permissions changed, data stores registered, users or roles created."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Remove what the attacker added",
+    "why": "Accounts, roles, API keys or app registrations created; services or data stores registered; permissions granted. Keep a record of each before removing it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Reset the credentials that account could read",
+    "why": "Data store and enterprise geodatabase passwords used by registered connections, the primary site administrator, and any service account. For RDS geodatabases, `rdsops incident --kind credentials`."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/security/psa/disable f=json",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Disable the primary site administrator",
+    "why": "It cannot be locked out by the identity store. Re-enable it from the machine only when needed."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Give gisadmin2 back to its owner with a new password and MFA",
+    "why": "Only after the review of what it did is done. If it was a shared admin account, replace it with named accounts."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/security/config/update allowedAdminAccessIPs=<previous value> f=json",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Lift the admin IP restriction set during containment",
+    "why": ""
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "aws-keys": {
+  "findings": [
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   }
+  ],
+  "kind": "aws-keys",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "aws iam update-access-key --access-key-id AKIAEXAMPLEOPS0LEAK1 --status Inactive --user-name <user>",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Deactivate the key AKIAEXAMPLEOPS0LEAK1",
+    "why": "Deactivate, do not delete: the key id is the thread through CloudTrail."
+   },
+   {
+    "command": "Attach a deny policy with aws:TokenIssueTime before now to the user or role (the IAM console's Revoke active sessions does this for roles)",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Revoke the sessions it may have started",
+    "why": "Temporary credentials made with the key keep working until they expire."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --deletion-protection --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn on deletion protection",
+    "why": "It is off. Whoever is in can delete the instance with one call."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-east-1 --db-instance-identifier egdb-lab --db-snapshot-identifier egdb-lab-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The instance and its snapshots are what the key could reach."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-east-1 --db-instance-identifier egdb-lab  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-east-1 --log-group-name /aws/rds/instance/egdb-lab/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=egdb-lab --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=AKIAEXAMPLEOPS0LEAK1",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Everything the key did",
+    "why": "Look for ModifyDBInstance, ModifyDBSnapshotAttribute, CopyDBSnapshot, AuthorizeSecurityGroupIngress, CreateDBSnapshot and DeleteDBInstance. Repeat in every Region the key could use."
+   },
+   {
+    "command": "For each change found: remove snapshot shares, revoke added security group rules, restore parameter values, delete instances or snapshots it created after copying them as evidence",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Undo what it changed",
+    "why": "Then decide from the findings whether this is also an exposure, exfiltration or destruction incident, and run that playbook too."
+   },
+   {
+    "command": "Give the workload an IAM role (instance profile or IAM Identity Center) and delete the old key after the investigation",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Replace the key with a role",
+    "why": "Long-lived keys are what leaked. Roles hand out credentials that expire."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "aws-keys-federal": {
+  "findings": [
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "aws-keys",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "aws iam update-access-key --access-key-id AKIAEXAMPLEOPS0LEAK1 --status Inactive --user-name <user>",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Deactivate the key AKIAEXAMPLEOPS0LEAK1",
+    "why": "Deactivate, do not delete: the key id is the thread through CloudTrail."
+   },
+   {
+    "command": "Attach a deny policy with aws:TokenIssueTime before now to the user or role (the IAM console's Revoke active sessions does this for roles)",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Revoke the sessions it may have started",
+    "why": "Temporary credentials made with the key keep working until they expire."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-gov-west-1 --db-instance-identifier nwsa-egdb --db-snapshot-identifier nwsa-egdb-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The instance and its snapshots are what the key could reach."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-gov-west-1 --db-instance-identifier nwsa-egdb  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-gov-west-1 --log-group-name /aws/rds/instance/nwsa-egdb/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=nwsa-egdb --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=AKIAEXAMPLEOPS0LEAK1",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Everything the key did",
+    "why": "Look for ModifyDBInstance, ModifyDBSnapshotAttribute, CopyDBSnapshot, AuthorizeSecurityGroupIngress, CreateDBSnapshot and DeleteDBInstance. Repeat in every Region the key could use."
+   },
+   {
+    "command": "For each change found: remove snapshot shares, revoke added security group rules, restore parameter values, delete instances or snapshots it created after copying them as evidence",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Undo what it changed",
+    "why": "Then decide from the findings whether this is also an exposure, exfiltration or destruction incident, and run that playbook too."
+   },
+   {
+    "command": "Give the workload an IAM role (instance profile or IAM Identity Center) and delete the old key after the investigation",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Replace the key with a role",
+    "why": "Long-lived keys are what leaked. Roles hand out credentials that expire."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "certificate": {
+  "findings": [
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   }
+  ],
+  "kind": "certificate",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab --query 'DBInstances[0].CertificateDetails'; aws rds describe-certificates",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Confirm it is the certificate",
+    "why": "Expired or untrusted, and which CA. Clients report SSL errors, not certificates."
+   },
+   {
+    "command": "Download the current RDS CA bundle for the Region and install it on ArcGIS Server machines, ArcGIS Pro machines and anything else that verifies the server",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Update the trust bundle on every client first",
+    "why": "Rotating the server before clients trust the new CA moves the outage, not ends it."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --ca-certificate-identifier rds-ca-rsa2048-g1 --apply-immediately",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Rotate to a current CA",
+    "why": "Some engine versions restart to apply it. Plan the window."
+   },
+   {
+    "command": "Keep rds.force_ssl = 1",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Do not fix it by turning off TLS",
+    "why": "Turning off verification or TLS trades an outage for an exposure."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "certificate-federal": {
+  "findings": [
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "certificate",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb --query 'DBInstances[0].CertificateDetails'; aws rds describe-certificates",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Confirm it is the certificate",
+    "why": "Expired or untrusted, and which CA. Clients report SSL errors, not certificates."
+   },
+   {
+    "command": "Download the current RDS CA bundle for the Region and install it on ArcGIS Server machines, ArcGIS Pro machines and anything else that verifies the server",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Update the trust bundle on every client first",
+    "why": "Rotating the server before clients trust the new CA moves the outage, not ends it."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-gov-west-1 --db-instance-identifier nwsa-egdb --ca-certificate-identifier rds-ca-rsa2048-g1 --apply-immediately",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Rotate to a current CA",
+    "why": "Some engine versions restart to apply it. Plan the window."
+   },
+   {
+    "command": "Keep rds.force_ssl = 1",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Do not fix it by turning off TLS",
+    "why": "Turning off verification or TLS trades an outage for an exposure."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "content": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC102",
+    "detail": "If its password is known to the attacker, they keep admin access through any identity store change. It is disabled in the playbook.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "The primary site administrator is enabled"
+   }
+  ],
+  "kind": "content",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.example.com/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved."
+   },
+   {
+    "command": "Disable editor_temp, or stop the script or service that is writing.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Stop the account or process making the changes",
+    "why": "Every minute of deletion makes recovery bigger."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "webgisdr --export --file webgisdr.properties",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Export a webgisdr backup of the site as it is now",
+    "why": "A webgisdr import replaces the whole site. This export keeps what is there now, including anything created since the last good backup, and the evidence. Keep it apart from the regular backups and mark it as incident evidence; `egisops backup-check` confirms the properties first."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Close the way in",
+    "why": "Use the admin-account or token playbook for the account that made the changes."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Restore the smallest thing that fixes it",
+    "why": "One item: the recycle bin if your release has it turned on, or re-create it from the owner's copy. Hosted data: restore its data store backup. Registered data: the geodatabase backup (`rdsops incident --kind destruction` for RDS)."
+   },
+   {
+    "command": "webgisdr --import --file webgisdr.properties",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Whole site only if the damage is that wide",
+    "why": "Imports the last good backup over the site. Everything created since that backup is lost unless re-created from the incident export."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "content-federal": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC105",
+    "detail": "The clock starts when the agency's CSIRT, SOC or IT department identifies the incident, not when the investigation ends.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "Federal system: CISA notification due within one hour of identification"
+   }
+  ],
+  "kind": "content",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.nwsa.example/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors report through the agency and their contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan, including privacy officials if personal data may be involved."
+   },
+   {
+    "command": "Disable editor_temp, or stop the script or service that is writing.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Stop the account or process making the changes",
+    "why": "Every minute of deletion makes recovery bigger."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "webgisdr --export --file webgisdr.properties",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Export a webgisdr backup of the site as it is now",
+    "why": "A webgisdr import replaces the whole site. This export keeps what is there now, including anything created since the last good backup, and the evidence. Keep it apart from the regular backups and mark it as incident evidence; `egisops backup-check` confirms the properties first."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Close the way in",
+    "why": "Use the admin-account or token playbook for the account that made the changes."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Restore the smallest thing that fixes it",
+    "why": "One item: the recycle bin if your release has it turned on, or re-create it from the owner's copy. Hosted data: restore its data store backup. Registered data: the geodatabase backup (`rdsops incident --kind destruction` for RDS)."
+   },
+   {
+    "command": "webgisdr --import --file webgisdr.properties",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Whole site only if the damage is that wide",
+    "why": "Imports the last good backup over the site. Everything created since that backup is lost unless re-created from the incident export."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "credentials": {
+  "findings": [
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   }
+  ],
+  "kind": "credentials",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-east-1 --db-instance-identifier egdb-lab --db-snapshot-identifier egdb-lab-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "Before passwords change and sessions end, so their activity is still on record."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-east-1 --db-instance-identifier egdb-lab  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-east-1 --log-group-name /aws/rds/instance/egdb-lab/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=egdb-lab --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "\\copy (SELECT now(), pid, usename, client_addr, backend_start, state, query FROM pg_stat_activity) TO 'sessions.csv' CSV HEADER",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save who is connected right now",
+    "why": "Ending sessions erases this. It is the quickest record of where the role came from."
+   },
+   {
+    "command": "ALTER ROLE gis_editor NOLOGIN; SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'gis_editor';",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Stop logins for gis_editor and end its sessions",
+    "why": "NOLOGIN first, or the attacker reconnects as soon as the session ends."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --rotate-master-user-password --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Rotate the master credential",
+    "why": "The master user can change every other role. Rotate it even if the leak looks smaller."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --deletion-protection --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn on deletion protection",
+    "why": "It is off. Whoever is in can delete the instance with one call."
+   },
+   {
+    "command": "SELECT rolname, rolcanlogin, rolvaliduntil FROM pg_roles WHERE oid > 16384 ORDER BY rolname; and in the pgaudit log: CREATE ROLE, GRANT, ALTER ROLE, CREATE FUNCTION",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Look for what the role left behind",
+    "why": "New roles, new grants and functions are how access survives a password change."
+   },
+   {
+    "command": "SET password_encryption = 'scram-sha-256'; \\password gis_editor",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Set a new password for gis_editor and reset every role that shared it",
+    "why": "Passwords reused across roles or environments are all exposed."
+   },
+   {
+    "command": "ALTER ROLE gis_editor LOGIN;",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Allow logins for gis_editor again",
+    "why": "Only after the new password is in place everywhere that needs it."
+   },
+   {
+    "command": "Edit each registered data store (Server Manager, or POST admin/data/items/<item>/edit), replace .sde connection files, then validate the data stores",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Update ArcGIS: new credentials in every data store and connection file",
+    "why": "Services keep failing, or keep using the old credentials, until this is done."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "credentials-federal": {
+  "findings": [
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "credentials",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-gov-west-1 --db-instance-identifier nwsa-egdb --db-snapshot-identifier nwsa-egdb-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "Before passwords change and sessions end, so their activity is still on record."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-gov-west-1 --db-instance-identifier nwsa-egdb  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-gov-west-1 --log-group-name /aws/rds/instance/nwsa-egdb/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=nwsa-egdb --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "\\copy (SELECT now(), pid, usename, client_addr, backend_start, state, query FROM pg_stat_activity) TO 'sessions.csv' CSV HEADER",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save who is connected right now",
+    "why": "Ending sessions erases this. It is the quickest record of where the role came from."
+   },
+   {
+    "command": "ALTER ROLE gis_editor NOLOGIN; SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'gis_editor';",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Stop logins for gis_editor and end its sessions",
+    "why": "NOLOGIN first, or the attacker reconnects as soon as the session ends."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-gov-west-1 --db-instance-identifier nwsa-egdb --rotate-master-user-password --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Rotate the master credential",
+    "why": "The master user can change every other role. Rotate it even if the leak looks smaller."
+   },
+   {
+    "command": "SELECT rolname, rolcanlogin, rolvaliduntil FROM pg_roles WHERE oid > 16384 ORDER BY rolname; and in the pgaudit log: CREATE ROLE, GRANT, ALTER ROLE, CREATE FUNCTION",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Look for what the role left behind",
+    "why": "New roles, new grants and functions are how access survives a password change."
+   },
+   {
+    "command": "SET password_encryption = 'scram-sha-256'; \\password gis_editor",
+    "is_command": true,
+    "phase": "Eradicate",
+    "title": "Set a new password for gis_editor and reset every role that shared it",
+    "why": "Passwords reused across roles or environments are all exposed."
+   },
+   {
+    "command": "ALTER ROLE gis_editor LOGIN;",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Allow logins for gis_editor again",
+    "why": "Only after the new password is in place everywhere that needs it."
+   },
+   {
+    "command": "Edit each registered data store (Server Manager, or POST admin/data/items/<item>/edit), replace .sde connection files, then validate the data stores",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Update ArcGIS: new credentials in every data store and connection file",
+    "why": "Services keep failing, or keep using the old credentials, until this is done."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "destruction": {
+  "findings": [
+   {
+    "code": "INC001",
+    "detail": "",
+    "evidence": {},
+    "severity": "OK",
+    "source": "rdsops-incident",
+    "title": "The restore point is inside the backup window"
+   },
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   }
+  ],
+  "kind": "destruction",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "Stop ArcGIS services and sync jobs that edit; REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA <schema> FROM <app roles>; or end the attacker's sessions (credentials playbook)",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Stop the writing",
+    "why": "Damage that keeps happening moves the restore point later and later."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --deletion-protection --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn on deletion protection",
+    "why": "It is off. Whoever is in can delete the instance with one call."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-east-1 --db-instance-identifier egdb-lab --db-snapshot-identifier egdb-lab-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "Before any restore. The damaged state is the evidence, and a restore you do not keep separate can overwrite it."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-east-1 --db-instance-identifier egdb-lab  (since 2026-01-05T04:00:00+00:00); aws logs create-export-task --region us-east-1 --log-group-name /aws/rds/instance/egdb-lab/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=egdb-lab --start-time 2026-01-05T04:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "Run the credentials or aws-keys playbook for how they got in",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Close the way in before bringing data back",
+    "why": "Restoring into the same hole invites the same damage."
+   },
+   {
+    "command": "aws rds restore-db-instance-to-point-in-time --region us-east-1 --source-db-instance-identifier egdb-lab --target-db-instance-identifier egdb-lab-restored-202601050600 --restore-time 2026-01-05T04:00:00+00:00 --no-publicly-accessible --deletion-protection",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Restore to a new instance at 2026-01-05T04:00:00+00:00",
+    "why": "A new instance, not over the old one: compare them, and keep the damaged one."
+   },
+   {
+    "command": "rdsops restore-drill style checks: PostGIS present, geodatabase present, row counts of the damaged tables match what you expect",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Verify the restored copy before anyone uses it",
+    "why": "Make sure the restore point is before the damage, not just before you noticed."
+   },
+   {
+    "command": "Edit each registered data store (Server Manager, or POST admin/data/items/<item>/edit), replace .sde connection files, then validate the data stores",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Update ArcGIS: point data stores at the restored instance",
+    "why": "Services keep failing, or keep using the old credentials, until this is done."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "destruction-federal": {
+  "findings": [
+   {
+    "code": "INC001",
+    "detail": "",
+    "evidence": {},
+    "severity": "OK",
+    "source": "rdsops-incident",
+    "title": "The restore point is inside the backup window"
+   },
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "destruction",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "Stop ArcGIS services and sync jobs that edit; REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA <schema> FROM <app roles>; or end the attacker's sessions (credentials playbook)",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Stop the writing",
+    "why": "Damage that keeps happening moves the restore point later and later."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-gov-west-1 --db-instance-identifier nwsa-egdb --db-snapshot-identifier nwsa-egdb-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "Before any restore. The damaged state is the evidence, and a restore you do not keep separate can overwrite it."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-gov-west-1 --db-instance-identifier nwsa-egdb  (since 2026-01-05T04:00:00+00:00); aws logs create-export-task --region us-gov-west-1 --log-group-name /aws/rds/instance/nwsa-egdb/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=nwsa-egdb --start-time 2026-01-05T04:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "Run the credentials or aws-keys playbook for how they got in",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Close the way in before bringing data back",
+    "why": "Restoring into the same hole invites the same damage."
+   },
+   {
+    "command": "aws rds restore-db-instance-to-point-in-time --region us-gov-west-1 --source-db-instance-identifier nwsa-egdb --target-db-instance-identifier nwsa-egdb-restored-202601050600 --restore-time 2026-01-05T04:00:00+00:00 --no-publicly-accessible --deletion-protection",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Restore to a new instance at 2026-01-05T04:00:00+00:00",
+    "why": "A new instance, not over the old one: compare them, and keep the damaged one."
+   },
+   {
+    "command": "rdsops restore-drill style checks: PostGIS present, geodatabase present, row counts of the damaged tables match what you expect",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Verify the restored copy before anyone uses it",
+    "why": "Make sure the restore point is before the damage, not just before you noticed."
+   },
+   {
+    "command": "Edit each registered data store (Server Manager, or POST admin/data/items/<item>/edit), replace .sde connection files, then validate the data stores",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Update ArcGIS: point data stores at the restored instance",
+    "why": "Services keep failing, or keep using the old credentials, until this is done."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "exfiltration": {
+  "findings": [
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   },
+   {
+    "code": "INC004",
+    "detail": "",
+    "evidence": {},
+    "severity": "FAIL",
+    "source": "rdsops-incident",
+    "title": "The instance is publicly accessible right now"
+   }
+  ],
+  "kind": "exfiltration",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-east-1 --db-instance-identifier egdb-lab --db-snapshot-identifier egdb-lab-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The instance and snapshot state at the time you found it."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-east-1 --db-instance-identifier egdb-lab  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-east-1 --log-group-name /aws/rds/instance/egdb-lab/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=egdb-lab --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws rds describe-db-snapshot-attributes --region us-east-1 --db-snapshot-identifier egdb-lab-before-upgrade; then --values-to-remove for every account that is not yours",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Cut every share",
+    "why": "A snapshot already copied cannot be pulled back. Stop further copies."
+   },
+   {
+    "command": "aws kms list-grants --region us-east-1 --key-id <key>; aws kms get-key-policy --region us-east-1 --key-id <key> --policy-name default",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Check the KMS key policy and grants",
+    "why": "An encrypted snapshot is only useful elsewhere if the other account can use your key. Remove any grant or policy entry for an account that is not yours."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=EventName,AttributeValue=CopyDBSnapshot (and ModifyDBSnapshotAttribute, StartExportTask)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Trace the copies",
+    "why": "Snapshot exports to S3 count too. Note the destination accounts and buckets."
+   },
+   {
+    "command": "List the schemas and tables in the copied snapshot's time window, and whether any hold personal or sensitive data",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Decide what was in it",
+    "why": "This decides who must be told. Geodatabases often hold owner names and addresses."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "exfiltration-federal": {
+  "findings": [
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "exfiltration",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-gov-west-1 --db-instance-identifier nwsa-egdb --db-snapshot-identifier nwsa-egdb-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The instance and snapshot state at the time you found it."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-gov-west-1 --db-instance-identifier nwsa-egdb  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-gov-west-1 --log-group-name /aws/rds/instance/nwsa-egdb/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=nwsa-egdb --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws rds describe-db-snapshot-attributes --region us-gov-west-1 --db-snapshot-identifier egdb-lab-before-upgrade; then --values-to-remove for every account that is not yours",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Cut every share",
+    "why": "A snapshot already copied cannot be pulled back. Stop further copies."
+   },
+   {
+    "command": "aws kms list-grants --region us-gov-west-1 --key-id <key>; aws kms get-key-policy --region us-gov-west-1 --key-id <key> --policy-name default",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Check the KMS key policy and grants",
+    "why": "An encrypted snapshot is only useful elsewhere if the other account can use your key. Remove any grant or policy entry for an account that is not yours."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=EventName,AttributeValue=CopyDBSnapshot (and ModifyDBSnapshotAttribute, StartExportTask)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Trace the copies",
+    "why": "Snapshot exports to S3 count too. Note the destination accounts and buckets."
+   },
+   {
+    "command": "List the schemas and tables in the copied snapshot's time window, and whether any hold personal or sensitive data",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Decide what was in it",
+    "why": "This decides who must be told. Geodatabases often hold owner names and addresses."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "exposed-service": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC102",
+    "detail": "If its password is known to the attacker, they keep admin access through any identity store change. It is disabled in the playbook.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "The primary site administrator is enabled"
+   }
+  ],
+  "kind": "exposed-service",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.example.com/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/services/Utilities/WaterMains.FeatureServer/stop f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Stop Utilities/WaterMains.FeatureServer",
+    "why": "Stopping closes it at once. If it must keep running for others, remove anonymous access instead."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/services/Utilities/WaterMains.FeatureServer/permissions/add principal=esriEveryone isAllowed=false f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Remove anonymous access",
+    "why": ""
+   },
+   {
+    "command": "Item a1b2c3d4e5f60718293a4b5c6d7e8f90: share with Everyone off, in the portal or with the sharing/rest share operation (everyone=false).",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Unshare the item from Everyone",
+    "why": "On a federated server the item's sharing is what grants access."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Measure what was reached",
+    "why": "Query, extract and edit requests to the service while it was open, by address. For a feature service with editing, also check edit tracking or the versioned history for changes."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Undo unauthorized edits",
+    "why": "From edit tracking, versioning or the geodatabase backup. Keep the changed data first."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate anything the service exposed",
+    "why": "Credentials or keys in attributes or attachments; database credentials if the service allowed a dynamic workspace."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/services/Utilities/WaterMains.FeatureServer/start f=json",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Restart the service with the right sharing",
+    "why": "Share it with the groups that need it, never Everyone for sensitive data, and turn off create, update and delete for anyone who should only read."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "exposed-service-federal": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC105",
+    "detail": "The clock starts when the agency's CSIRT, SOC or IT department identifies the incident, not when the investigation ends.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "Federal system: CISA notification due within one hour of identification"
+   }
+  ],
+  "kind": "exposed-service",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.nwsa.example/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors report through the agency and their contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan, including privacy officials if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/services/Utilities/WaterMains.FeatureServer/stop f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Stop Utilities/WaterMains.FeatureServer",
+    "why": "Stopping closes it at once. If it must keep running for others, remove anonymous access instead."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/services/Utilities/WaterMains.FeatureServer/permissions/add principal=esriEveryone isAllowed=false f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Remove anonymous access",
+    "why": ""
+   },
+   {
+    "command": "Item a1b2c3d4e5f60718293a4b5c6d7e8f90: share with Everyone off, in the portal or with the sharing/rest share operation (everyone=false).",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Unshare the item from Everyone",
+    "why": "On a federated server the item's sharing is what grants access."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Measure what was reached",
+    "why": "Query, extract and edit requests to the service while it was open, by address. For a feature service with editing, also check edit tracking or the versioned history for changes."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Undo unauthorized edits",
+    "why": "From edit tracking, versioning or the geodatabase backup. Keep the changed data first."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate anything the service exposed",
+    "why": "Credentials or keys in attributes or attachments; database credentials if the service allowed a dynamic workspace."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/services/Utilities/WaterMains.FeatureServer/start f=json",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Restart the service with the right sharing",
+    "why": "Share it with the groups that need it, never Everyone for sensitive data, and turn off create, update and delete for anyone who should only read."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "exposure": {
+  "findings": [
+   {
+    "code": "INC002",
+    "detail": "The playbook turns it on first; an attacker with access could delete it.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "rdsops-incident",
+    "title": "Deletion protection is off"
+   },
+   {
+    "code": "INC004",
+    "detail": "",
+    "evidence": {},
+    "severity": "FAIL",
+    "source": "rdsops-incident",
+    "title": "The instance is publicly accessible right now"
+   }
+  ],
+  "kind": "exposure",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved. Regulated data can carry its own notification deadlines."
+   },
+   {
+    "command": "aws rds modify-db-snapshot-attribute --region us-east-1 --db-snapshot-identifier egdb-lab-before-upgrade --attribute-name restore --values-to-remove all",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Make snapshot egdb-lab-before-upgrade private",
+    "why": "Every minute it is public, any AWS account can copy the whole geodatabase."
+   },
+   {
+    "command": "aws ec2 revoke-security-group-ingress --region us-east-1 --group-id sg-0egdblab --protocol tcp --port 5432 --cidr 0.0.0.0/0",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Remove the 0.0.0.0/0 rule from sg-0egdblab",
+    "why": "Write the rule down first (Preserve below has the CloudTrail event)."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --no-publicly-accessible --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn off public access",
+    "why": "ArcGIS connects from inside the VPC and does not need it."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-east-1 --db-instance-identifier egdb-lab --query 'DBInstances[0].[PubliclyAccessible,VpcSecurityGroups]'; aws ec2 describe-security-groups --region us-east-1 --group-ids <groups>; for each manual snapshot: aws rds describe-db-snapshot-attributes --region us-east-1 --db-snapshot-identifier <snapshot>",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Find anything else that is open",
+    "why": "Public address, a 0.0.0.0/0 rule on the port, or a snapshot whose restore attribute includes all. Close each one the same way."
+   },
+   {
+    "command": "aws rds modify-db-instance --region us-east-1 --db-instance-identifier egdb-lab --deletion-protection --apply-immediately",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn on deletion protection",
+    "why": "It is off. Whoever is in can delete the instance with one call."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-east-1 --db-instance-identifier egdb-lab --db-snapshot-identifier egdb-lab-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The configuration and logs show how long it was open."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-east-1 --db-instance-identifier egdb-lab  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-east-1 --log-group-name /aws/rds/instance/egdb-lab/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=egdb-lab --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-east-1 --lookup-attributes AttributeKey=EventName,AttributeValue=ModifyDBSnapshotAttribute (and AuthorizeSecurityGroupIngress, ModifyDBInstance)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Find who opened it and when",
+    "why": "The exposure window runs from that event to the containment step."
+   },
+   {
+    "command": "Search the PostgreSQL log for connection authorized lines from addresses outside your networks between the open and close times",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Check who connected during the window",
+    "why": "No log for the window means you cannot rule access out; plan as if it happened."
+   },
+   {
+    "command": "Run rdsops incident --kind credentials for the master user and every login role",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate credentials that were reachable",
+    "why": "Anything that could have been brute-forced or sniffed while exposed is suspect."
+   },
+   {
+    "command": "An AWS Config rule or SCP that denies public RDS instances and public snapshots",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Put a guard rail on it",
+    "why": "The same mistake should be refused next time, not found."
+   },
+   {
+    "command": "rdsops security --instance egdb-lab --region us-east-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "exposure-federal": {
+  "findings": [
+   {
+    "code": "INC005",
+    "detail": "The Notify step comes right after triage for that reason.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "rdsops-incident",
+    "title": "Federal: CISA notification within one hour of identification"
+   }
+  ],
+  "kind": "exposure",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb",
+    "is_command": true,
+    "phase": "Triage",
+    "title": "Scope: what can this instance reach, and what can reach it",
+    "why": "Note the endpoint, security groups, snapshots and the ArcGIS sites that connect."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors and cloud providers report through the agency and their FedRAMP or contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan for internal escalation and for privacy officials if personal data may be involved."
+   },
+   {
+    "command": "aws rds modify-db-snapshot-attribute --region us-gov-west-1 --db-snapshot-identifier egdb-lab-before-upgrade --attribute-name restore --values-to-remove all",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Make snapshot egdb-lab-before-upgrade private",
+    "why": "Every minute it is public, any AWS account can copy the whole geodatabase."
+   },
+   {
+    "command": "aws ec2 revoke-security-group-ingress --region us-gov-west-1 --group-id sg-0egdblab --protocol tcp --port 5432 --cidr 0.0.0.0/0",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Remove the 0.0.0.0/0 rule from sg-0egdblab",
+    "why": "Write the rule down first (Preserve below has the CloudTrail event)."
+   },
+   {
+    "command": "aws rds describe-db-instances --region us-gov-west-1 --db-instance-identifier nwsa-egdb --query 'DBInstances[0].[PubliclyAccessible,VpcSecurityGroups]'; aws ec2 describe-security-groups --region us-gov-west-1 --group-ids <groups>; for each manual snapshot: aws rds describe-db-snapshot-attributes --region us-gov-west-1 --db-snapshot-identifier <snapshot>",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Find anything else that is open",
+    "why": "Public address, a 0.0.0.0/0 rule on the port, or a snapshot whose restore attribute includes all. Close each one the same way."
+   },
+   {
+    "command": "aws rds create-db-snapshot --region us-gov-west-1 --db-instance-identifier nwsa-egdb --db-snapshot-identifier nwsa-egdb-incident-202601050600 --tags Key=incident,Value=true",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Snapshot the instance as it is now",
+    "why": "The configuration and logs show how long it was open."
+   },
+   {
+    "command": "aws rds describe-db-log-files --region us-gov-west-1 --db-instance-identifier nwsa-egdb  (since 2026-01-05T00:00:00+00:00); aws logs create-export-task --region us-gov-west-1 --log-group-name /aws/rds/instance/nwsa-egdb/postgresql --from <ms> --to <ms> --destination <evidence bucket>",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Keep the database logs for the window",
+    "why": "Log files on the instance rotate away. pgaudit lines show what each role ran."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=ResourceName,AttributeValue=nwsa-egdb --start-time 2026-01-05T00:00:00+00:00",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Pull the CloudTrail record for the instance",
+    "why": "Who changed what in the control plane: security groups, snapshots, parameters, passwords. CloudTrail event history keeps 90 days; trails keep what you configured."
+   },
+   {
+    "command": "aws cloudtrail lookup-events --region us-gov-west-1 --lookup-attributes AttributeKey=EventName,AttributeValue=ModifyDBSnapshotAttribute (and AuthorizeSecurityGroupIngress, ModifyDBInstance)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Find who opened it and when",
+    "why": "The exposure window runs from that event to the containment step."
+   },
+   {
+    "command": "Search the PostgreSQL log for connection authorized lines from addresses outside your networks between the open and close times",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Check who connected during the window",
+    "why": "No log for the window means you cannot rule access out; plan as if it happened."
+   },
+   {
+    "command": "Run rdsops incident --kind credentials for the master user and every login role",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate credentials that were reachable",
+    "why": "Anything that could have been brute-forced or sniffed while exposed is suspect."
+   },
+   {
+    "command": "An AWS Config rule or SCP that denies public RDS instances and public snapshots",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Put a guard rail on it",
+    "why": "The same mistake should be refused next time, not found."
+   },
+   {
+    "command": "rdsops security --instance nwsa-egdb --region us-gov-west-1",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Review within two weeks",
+    "why": "What let it happen, what found it, how long each phase took. Turn each answer into a change and a check, and run the security scan again."
+   }
+  ]
+ },
+ "host": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC102",
+    "detail": "If its password is known to the attacker, they keep admin access through any identity store change. It is disabled in the playbook.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "The primary site administrator is enabled"
+   }
+  ],
+  "kind": "host",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.example.com/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved."
+   },
+   {
+    "command": "Security group, firewall or network ACL: no inbound, and outbound only to your evidence store.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Isolate GISSRV02 at the network",
+    "why": "Isolating instead of shutting down keeps memory and running processes for the investigation. In a multi-machine site the others keep serving."
+   },
+   {
+    "command": "aws ec2 create-snapshot --volume-id <volume> --description 'incident GISSRV02'  (for each volume)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Capture GISSRV02 before anything else",
+    "why": "And a memory capture if your team does them. On premises, use your hypervisor or disk imaging."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/machines/GISSRV02/stop f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Take GISSRV02 out of the site",
+    "why": "Then unregister it once evidence is captured. A single-machine site is down from here until it is rebuilt."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate every secret that machine held",
+    "why": "Token shared key, primary site administrator, the run-as account, data store and geodatabase passwords in .sde files and registered connections, webgisdr properties credentials, and any cloud keys on the machine."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Rebuild, do not clean",
+    "why": "A new machine from a known image or your automation, patched, then joined to the site. Nothing copied from the old disk except reviewed configuration."
+   },
+   {
+    "command": "egisops server-health --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Watch the site closely for two weeks",
+    "why": "Plus the server logs at FINE and the access logs for the addresses found."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "host-federal": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC105",
+    "detail": "The clock starts when the agency's CSIRT, SOC or IT department identifies the incident, not when the investigation ends.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "Federal system: CISA notification due within one hour of identification"
+   }
+  ],
+  "kind": "host",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.nwsa.example/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors report through the agency and their contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan, including privacy officials if personal data may be involved."
+   },
+   {
+    "command": "Security group, firewall or network ACL: no inbound, and outbound only to your evidence store.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Isolate GISSRV02 at the network",
+    "why": "Isolating instead of shutting down keeps memory and running processes for the investigation. In a multi-machine site the others keep serving."
+   },
+   {
+    "command": "aws ec2 create-snapshot --volume-id <volume> --description 'incident GISSRV02'  (for each volume)",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Capture GISSRV02 before anything else",
+    "why": "And a memory capture if your team does them. On premises, use your hypervisor or disk imaging."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/machines/GISSRV02/stop f=json",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Take GISSRV02 out of the site",
+    "why": "Then unregister it once evidence is captured. A single-machine site is down from here until it is rebuilt."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Rotate every secret that machine held",
+    "why": "Token shared key, primary site administrator, the run-as account, data store and geodatabase passwords in .sde files and registered connections, webgisdr properties credentials, and any cloud keys on the machine."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Rebuild, do not clean",
+    "why": "A new machine from a known image or your automation, patched, then joined to the site. Nothing copied from the old disk except reviewed configuration."
+   },
+   {
+    "command": "egisops server-health --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Recover",
+    "title": "Watch the site closely for two weeks",
+    "why": "Plus the server logs at FINE and the access logs for the addresses found."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "token": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC102",
+    "detail": "If its password is known to the attacker, they keep admin access through any identity store change. It is disabled in the playbook.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "The primary site administrator is enabled"
+   }
+  ],
+  "kind": "token",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.example.com/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Escalate under your incident response plan",
+    "why": "Security team, system owner, and legal or privacy if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.example.com/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "Server: POST https://gis.example.com/server/admin/security/tokens/update with a new sharedKey you generate; portal: update its token key. Never paste the key into chat, tickets or this record.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Change the token shared key",
+    "why": "Every token issued with the old key stops working at once. Users sign in again; services and apps that store tokens need new ones."
+   },
+   {
+    "command": "POST https://gis.example.com/server/admin/security/tokens/update allowHttpGet=false allowHttpPostQueryParams=false",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn off token requests that put credentials in URLs",
+    "why": "Leaked tokens often come from URLs in logs or browser history (Esri SS03/SS04)."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Find where the token was used",
+    "why": "In the saved logs and access logs: requests carrying it, from which addresses, and which services. That decides whether data was read or changed."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Find how it leaked",
+    "why": "Scripts, notebooks or app configs with tokens in them, URLs pasted in tickets or chat, a proxy logging query strings. Remove the token from each."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Issue new credentials to the apps and scripts that need them",
+    "why": "Use short token lifetimes and keep them out of URLs and code."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.example.com/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ },
+ "token-federal": {
+  "findings": [
+   {
+    "code": "INC101",
+    "detail": "Run egisops backup-check, or pass --backup-age-hours, to know what a full restore would lose.",
+    "evidence": {},
+    "severity": "INFO",
+    "source": "egisops-incident",
+    "title": "Age of the newest webgisdr backup not given"
+   },
+   {
+    "code": "INC105",
+    "detail": "The clock starts when the agency's CSIRT, SOC or IT department identifies the incident, not when the investigation ends.",
+    "evidence": {},
+    "severity": "WARN",
+    "source": "egisops-incident",
+    "title": "Federal system: CISA notification due within one hour of identification"
+   }
+  ],
+  "kind": "token",
+  "steps": [
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Open an incident record and name one incident lead",
+    "why": "Start a timeline now (UTC). Every action from here on goes in it with who and when."
+   },
+   {
+    "command": "Site https://gis.nwsa.example/portal. List the federated servers, the registered data stores and the enterprise geodatabases behind them.",
+    "is_command": false,
+    "phase": "Triage",
+    "title": "Scope: which site, which machines, which data",
+    "why": "A compromise of the site reaches every database registered with it."
+   },
+   {
+    "command": "https://www.cisa.gov/report",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Report to CISA within one hour of identification",
+    "why": "CISA's Federal Incident Notification Guidelines: federal Executive Branch civilian agencies notify CISA within one hour of the incident being identified by the agency's top-level CSIRT, SOC or IT department. Report what is known; update later. Contractors report through the agency and their contract terms."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Notify",
+    "title": "Tell the agency SOC and the system owner",
+    "why": "Follow the agency incident response plan, including privacy officials if personal data may be involved."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 pageSize=10000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the server logs before anything changes",
+    "why": "Server logs roll over and the log level may be low; save them now, page by page, into the incident record. Raise the level to FINE for the duration."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/portal/portaladmin/logs/query level=FINE startTime=<now ms> endTime=1767571200000 f=json",
+    "is_command": true,
+    "phase": "Preserve",
+    "title": "Save the portal logs",
+    "why": "Portal logs show sign-ins, sharing changes and administrative actions."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Save the web server and load balancer access logs",
+    "why": "They hold source addresses that ArcGIS logs do not. Copy them off the machines."
+   },
+   {
+    "command": "Server: POST https://gis.nwsa.example/server/admin/security/tokens/update with a new sharedKey you generate; portal: update its token key. Never paste the key into chat, tickets or this record.",
+    "is_command": false,
+    "phase": "Contain",
+    "title": "Change the token shared key",
+    "why": "Every token issued with the old key stops working at once. Users sign in again; services and apps that store tokens need new ones."
+   },
+   {
+    "command": "POST https://gis.nwsa.example/server/admin/security/tokens/update allowHttpGet=false allowHttpPostQueryParams=false",
+    "is_command": true,
+    "phase": "Contain",
+    "title": "Turn off token requests that put credentials in URLs",
+    "why": "Leaked tokens often come from URLs in logs or browser history (Esri SS03/SS04)."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Preserve",
+    "title": "Find where the token was used",
+    "why": "In the saved logs and access logs: requests carrying it, from which addresses, and which services. That decides whether data was read or changed."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Eradicate",
+    "title": "Find how it leaked",
+    "why": "Scripts, notebooks or app configs with tokens in them, URLs pasted in tickets or chat, a proxy logging query strings. Remove the token from each."
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Recover",
+    "title": "Issue new credentials to the apps and scripts that need them",
+    "why": "Use short token lifetimes and keep them out of URLs and code."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/server",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "Check the server against Esri's security practices",
+    "why": "Fix what it finds before closing the incident."
+   },
+   {
+    "command": "egisops security --url https://gis.nwsa.example/portal --portal",
+    "is_command": true,
+    "phase": "Learn",
+    "title": "And the portal",
+    "why": ""
+   },
+   {
+    "command": "",
+    "is_command": false,
+    "phase": "Learn",
+    "title": "Review: timeline, root cause, what to change",
+    "why": "Within two weeks. Update this playbook with what was missing."
+   }
+  ]
+ }
+}

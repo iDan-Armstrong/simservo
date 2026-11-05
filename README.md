@@ -17,7 +17,7 @@ running inside the page through Pyodide.
 
 | Real | Simulated |
 | --- | --- |
-| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill` and egisops `server-health`, `services`, `logs`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
+| The checks: rdsops `inventory`, `health`, `maintenance`, `compat`, `restore-drill`, `aurora-plan`, `fleet`, `security`, `incident` and egisops `server-health`, `services`, `logs`, `portal-health`, `datastore`, `backup-check`, `stack-compat`, `security`, `incident`, each at a pinned commit | The network: one VPC, one ArcGIS Server site, one RDS instance |
 | Finding codes, severities, thresholds and fix text | The numbers: connections, dead rows, WAL, storage, transaction ID age |
 | The commands each action shows (AWS CLI, SQL, console steps) | Time (one tick is one game hour) and money |
 | Tutorial links to AWS, Esri, PostgreSQL and PostGIS docs, checked by CI | Scenarios, quests, XP and achievements |
@@ -38,10 +38,10 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
 
 ## Progression
 
-- 100 levels in ten tiers. Eight are playable, because their real tools exist: Fundamentals,
+- 100 levels in ten tiers. Nine are playable, because their real tools exist: Fundamentals,
   Monitoring and Maintenance, Versions and Upgrades, Backup and Restore, ArcGIS Server,
-  Portal and Federation, Data Store, and Fleet Command. Security Operations and High
-  Availability and DR are next.
+  Portal and Federation, Data Store, Security Operations, and Fleet Command. High
+  Availability and DR is next.
 - ArcGIS Server from level 4: a site that ships with a self-signed certificate, machines
   that do not come back after patch night, and licenses that run out. The real
   `egisops server-health` scores it. From level 5, `egisops services` and `logs` watch the
@@ -86,6 +86,24 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   same posture and Esri checks as inventory and compat plus fleet-wide drift. Fixes per
   site: the Terraform baseline, a patch to the certified minor, a release tag, Multi-AZ,
   or encryption by snapshot copy. Sites pay while under contract; failing ones cost.
+- **Security Operations** from level 15. The real `rdsops security` and `egisops security`
+  score the posture the game keeps for your database and site: TLS not required, md5
+  passwords, a certificate running out in 20 days, the port open to the internet, a
+  snapshot shared with an unknown account, no audit trail, tokens over GET, the services
+  directory open, the primary site administrator enabled. Each finding has its fix.
+  What stays open draws attacks: eleven kinds, six from `rdsops incident` (credentials,
+  AWS keys, exposure, destruction, exfiltration, certificate) and five from
+  `egisops incident` (admin account, tokens, exposed service, content, a compromised
+  machine). When one lands the game pauses and the real tool writes the playbook for your
+  instance or site. You pick the order; steps cost incident minutes and the attacker does
+  damage until contained. The rules come from the playbook itself: running a step that
+  destroys evidence ahead of the evidence the playbook keeps first is lost evidence,
+  recovering before containment lets the attacker back in, the review comes last, and a
+  federal client's CISA report is due within one hour. Contingencies add steps when the
+  situation calls for them: a session still open after a password change, a second open
+  rule, an instance deleted because deletion protection was off, a restore window too
+  short, a CA rotation that breaks ArcGIS, a leaked key used in another Region, the
+  primary site administrator used to get back in, a KMS key scheduled for deletion.
 - Restore drills from level 6: the game simulates the restore timeline (scaled by
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
@@ -119,10 +137,11 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | Test | What it proves |
 | --- | --- |
 | `npm test` | 100 levels, tutorials and links well formed; every acronym the game uses has a glossary entry; a stopped data store fails federation and fails over to a standby; backups stop when the share is full; WebGISDR exports fail by component, keep seven files, and only run when scheduled; engine determinism; open transactions pin dead rows; orphaned slots fill the disk; XP is awarded once per fix |
-| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; all eight fleet instances run through the real rdsops fleet; drills plan and score through the real `restore-drill` |
-| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, a fleet site arrives and a baseline fix through the panel changes what rdsops fleet reports, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
+| `tests/test_bridge.py` | Every finding code the game uses exists in rdsops or egisops; every scenario raises the code it teaches through the real evaluators; with a Data Store standby, the same outage is only a warning; the takeover client's blockers and the promoted cluster run through the real rdsops aurora-plan and compat; all eight fleet instances run through the real rdsops fleet; the starting security posture fails the real checks for every fix the game offers and the hardened one passes; the playbook fixture matches the real tools; drills plan and score through the real `restore-drill` |
+| `tests/e2e/smoke.mjs` | The built site in Chromium: wizard loads real Pyodide and rdsops, self-test passes, glossary tooltips and search work, a finding is fixed through the UI, a stopped ArcGIS Data Store is caught by egisops and fixed, a WebGISDR export is taken through the UI and scored, the 12.1 expansion is played from the reveal to a clean stack, the takeover is played from the real aurora-plan blockers to a clean Aurora compat check, a fleet site arrives and a baseline fix through the panel changes what rdsops fleet reports, security findings come from the real tools and a federal incident is played through the console with the real playbook, 48 game hours play, a restore drill is scored by rdsops, Trollzilla takes the region down |
 | `tests/campaign.test.mjs` | The expansion end to end: unlock at 12, Esri's order and backup rule enforced, components unavailable while upgrading, chapters, finale |
 | `tests/takeover.test.mjs` | Expansion 2 end to end: waits for the 12.1 Upgrade, GovCloud facts, the version arriving in the Region, AWS's order (no promotion while writing or lagging), the finale |
+| `tests/secops.test.mjs` | Every real playbook (exported to a fixture) runs clean in its own order; evidence destroyed early, recovery before containment, a late CISA report and the review out of order are each caught; the contingencies fire; posture fixes change what the real tools read |
 | `tests/fleet.test.mjs` | The fleet opens after the takeover, six sites arrive on schedule, fixes change the facts, GovCloud ARNs |
 | `tools/check-links.mjs` | Every tutorial link answers |
 

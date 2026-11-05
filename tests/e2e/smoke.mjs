@@ -220,6 +220,45 @@ try {
   if (parks.evidence.codes.includes("INV002")) fail("baseline did not close public access on parks-egdb");
   if (process.env.SHOTS) { await page.evaluate(() => document.getElementById("modal").classList.add("hidden")); await page.screenshot({ path: "test-results/fleet.png" }); }
 
+  // Security Operations: posture through the real rdsops security and egisops security,
+  // then a federal incident with the real playbook, played through the console.
+  const sec = await page.evaluate(() => {
+    const g = window.simservo;
+    if (g.s.level < 15) { g.s.xp = Math.max(g.s.xp, 14000); g.progress(); }
+    document.querySelector("#btn-scan").click();
+    document.getElementById("modal").classList.add("hidden");
+    const f = g.findings.filter((x) => x.source === "security" || x.source === "arcgis-security");
+    const inc = g.openIncident({ open: "credentials", federal: true });
+    document.querySelector("#btn-scan").click(); // renders, like a game frame would
+    return { level: g.s.level, fails: f.filter((x) => x.severity === "FAIL").map((x) => x.code), steps: inc.steps.length, cisa: inc.steps[2].title };
+  });
+  console.log("security:", JSON.stringify(sec));
+  if (!sec.fails.includes("SEC001") || !sec.fails.includes("ESC003")) fail("security findings missing from the real tools");
+  if (!/CISA/.test(sec.cisa)) fail("federal playbook should notify CISA right after triage");
+  await page.evaluate(() => document.getElementById("modal").classList.add("hidden"));
+  if (await page.isVisible("#troll:not(.hidden)")) await page.click("#troll-ok");
+  await page.evaluate(() => document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden")));
+  await page.waitForSelector("#incident:not(.hidden)");
+  for (let guard = 0; guard < 40; guard++) {
+    const next = await page.evaluate(() => {
+      const inc = window.simservo.s.secops.incident;
+      if (!inc) return null;
+      const st = inc.steps.find((x) => !x.done && (x.phase !== "Learn" || inc.steps.every((y) => y.done || y.phase === "Learn")));
+      return st ? st.n : null;
+    });
+    if (next == null) break;
+    await page.evaluate(() => document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden")));
+    await page.click(`#inc-choices [data-inc='${next}']`);
+    if (process.env.SHOTS && guard === 5) await page.screenshot({ path: "test-results/incident-mid.png" });
+  }
+  if (process.env.SHOTS) await page.screenshot({ path: "test-results/incident.png" });
+  await page.click("#inc-close");
+  await page.waitForSelector("#modal:not(.hidden)");
+  const closed = await page.evaluate(() => ({ c: window.simservo.s.counters, open: Boolean(window.simservo.s.secops.incident) }));
+  console.log("incident closed:", JSON.stringify({ closed: closed.c.incidentsClosed, cisa: closed.c.cisaOnTime, evidence: closed.c.evidenceKept }));
+  if (closed.open || closed.c.incidentsClosed !== 1 || closed.c.cisaOnTime !== 1 || closed.c.evidenceKept !== 1) fail("incident did not close cleanly");
+  await page.click("#modal-actions .btn");
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });

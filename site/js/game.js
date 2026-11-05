@@ -2,7 +2,7 @@
 // `evaluate(snapshot)` is injected: in the browser it is the real rdsops running in
 // Pyodide; in unit tests it can be a stub.
 
-import { businessLoad, clock, isDown, newGame, rng, snapshot, step } from "./engine.js";
+import { businessLoad, clock, isDown, isoAt, newGame, rng, snapshot, step } from "./engine.js";
 import { ACTIONS } from "./actions.js";
 import { features, levelForXp } from "./levels.js";
 import { byId, roll } from "./scenarios.js";
@@ -11,6 +11,7 @@ import { addMachine, enterpriseTick, ensureSite, siteTick, webgisdrTick } from "
 import { STEPS, campaignTick, checkFinale, ensureCampaign, startStep } from "./campaign.js";
 import * as takeover from "./takeover.js";
 import * as fleet from "./fleet.js";
+import * as secops from "./secops.js";
 import { backupTick, drillRequest, ensureBackupState, planPayload, simulateDrill } from "./drills.js";
 
 const RANK = { OK: 0, INFO: 1, WARN: 2, FAIL: 3 };
@@ -26,6 +27,7 @@ export function incidentKey(f) {
   const e = f.evidence || {};
   if (f.code === "HLT006") return `HLT006:${(f.title.match(/slot (\S+):/) || [])[1]}`;
   if (f.code === "LOG002") return `LOG002:${e.source}:${e.code}`;
+  if (/^(SEC|ESC)\d/.test(f.code)) return `${f.code}:${f.title.replace(/\d+/g, "#")}`;
   const id = e.table && e.column ? `${e.table}.${e.column}` : e.table || e.index || e.machine || e.service || e.license || e.instance || e.userType || e.serverId || e.path || (Array.isArray(e.indexes) ? e.indexes.map((x) => x.name || x).join("|") : "");
   return `${f.code}:${id}`;
 }
@@ -80,6 +82,7 @@ export class Game {
     for (const e of takeover.takeoverTick(s, (x) => this.log(x))) this.emit("takeover", e);
     const failing = this.findings.filter((x) => x.code === "FLT001" && x.severity === "FAIL").length;
     for (const e of fleet.fleetTick(s, (x) => this.log(x), failing)) this.emit("fleet", e);
+    for (const e of secops.secopsTick(s, this.rand, (x) => this.log(x), this.rules.incidentPlaybook)) this.openIncident(e);
     this.finishPending();
     this.checkAudit();
     this.runScenarios();
@@ -134,6 +137,11 @@ export class Game {
       this.emit("fleet", { started: true });
     }
     if (s.fleet && s.fleet.started != null) allowed.add("fleet");
+    if (secops.startSecops(s)) {
+      this.log({ kind: "level", text: "Security Operations: your posture is now scored, and attacks will come." });
+      this.emit("secops", { started: true });
+    }
+    if (s.secops && s.secops.started != null) { allowed.add("security"); allowed.add("arcgis-security"); }
     const snap = snapshot(s, { production: features(s.level).production });
     const all = this.evaluate(snap);
     this.findings = all.filter((x) => allowed.has(x.source));
@@ -149,6 +157,7 @@ export class Game {
     if (this.findings.some((x) => x.code === "PTL008" && x.severity === "OK")) s.counters.federationOk = true;
     const rows = this.findings.filter((x) => x.code === "FLT001");
     if (rows.length >= 6 && rows.every((x) => x.severity !== "FAIL")) s.counters.fleetClean6 = true;
+    if (s.secops && s.secops.started != null && !this.findings.some((x) => (x.source === "security" || x.source === "arcgis-security") && (x.severity === "WARN" || x.severity === "FAIL"))) s.counters.hardened = true;
     if (rows.length >= 4 && !this.findings.some((x) => x.code === "FLT002" && /minors/.test(x.title))) s.counters.fleetNoDrift = true;
     if (checkFinale(s, this.findings)) {
       this.award(XP.expansion, "Expansion complete: The 12.1 Upgrade");
@@ -237,6 +246,32 @@ export class Game {
     const r = fleet.startFix(this.s, memberId, fixId, (e) => this.log(e));
     if (r.ok) this.scan({ manual: false });
     return r;
+  }
+
+  // ------------------------------------------------------ security incidents
+  openIncident(e) {
+    const s = this.s;
+    const req = secops.incidentRequest(s, e.open, e.federal, isoAt);
+    const pb = this.rules.incidentPlaybook(req);
+    const inc = secops.openIncident(s, e.open, e.federal, pb, (x) => this.log(x));
+    this.emit("secops", { incident: inc.id });
+    return inc;
+  }
+
+  incidentStep(n) {
+    const r = secops.takeStep(this.s, n, (x) => this.log(x));
+    return r;
+  }
+
+  closeIncident() {
+    const s = this.s;
+    const inc = s.secops && s.secops.incident;
+    const r = secops.closeIncident(s, (x) => this.log(x));
+    if (!r) return { ok: false, reason: "Some steps are not done." };
+    this.award(r.xp, `Incident ${inc.id} closed`);
+    this.scan({ manual: false });
+    this.progress();
+    return { ok: true, ...r };
   }
 
   takeoverAct(id) {

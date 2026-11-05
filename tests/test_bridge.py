@@ -34,7 +34,7 @@ def rdsops_codes():
     text = ""
     for pkg in (rdsops, egisops):
         text += "".join(p.read_text() for p in pathlib.Path(pkg.__file__).parent.glob("*.py"))
-    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR|FLT)\d{3})"', text))
+    return set(re.findall(r'"((?:INV|HLT|MNT|CMP|UPG|DRL|SRV|SVC|LOG|PTL|DST|BAK|STK|AUR|FLT|SEC|ESC)\d{3})"', text))
 
 
 def evaluate(snapshot):
@@ -175,3 +175,39 @@ def test_fleet_through_real_rdsops_fleet(catalog):
     assert rows["nwsa-egdb-test"]["evidence"]["region"] == "us-gov-west-1"
     codes = {f["code"] for f in found}
     assert {"FLT000", "FLT002", "FLT003"} <= codes
+
+
+def test_security_posture_through_the_real_tools(catalog):
+    found = [f for f in evaluate(catalog["security"]["asFound"]) if f["source"] in ("security", "arcgis-security")]
+    bad = {f["code"] for f in found if RANK[f["severity"]] >= 2}
+    # every fix the game offers answers something the real tools flag on the starting posture
+    fixes = {c for c in catalog["actionCodes"] if c[:3] in ("SEC", "ESC")}
+    # SEC006 and ESC005 answer INFO findings (a shared snapshot, direct admin access)
+    assert fixes - {"SEC006", "ESC005"} <= bad, (fixes - bad)
+    assert {"SEC001", "SEC005", "ESC001", "ESC003"} <= {f["code"] for f in found if f["severity"] == "FAIL"}
+    # esri scanner IDs come through from egisops
+    assert any(f.get("evidence", {}).get("esri") == "SS03" for f in found)
+    hardened = [f for f in evaluate(catalog["security"]["hardened"]) if f["source"] in ("security", "arcgis-security")]
+    assert hardened and not [f for f in hardened if RANK[f["severity"]] >= 2], hardened
+
+
+def test_playbook_fixture_matches_the_real_tools():
+    """tests/fixtures/playbooks.json (used by the Node tests) is what the real tools print now."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import importlib
+
+    exporter = importlib.import_module("export-playbooks")
+    fixture = json.loads((ROOT / "tests" / "fixtures" / "playbooks.json").read_text())
+    assert exporter.build() == fixture, "run python3 tools/export-playbooks.py"
+
+
+def test_every_incident_kind_has_a_real_playbook(catalog):
+    for i in catalog["incidents"]:
+        pb = json.loads(simservo_bridge.incident_playbook(json.dumps(i["request"])))
+        phases = [s["phase"] for s in pb["steps"]]
+        assert phases[0] == "Triage" and phases[-1] == "Learn", i["kind"]
+        if i["federal"]:
+            assert phases[2] == "Notify" and "CISA" in pb["steps"][2]["title"], i["kind"]
+            text = json.dumps(pb)
+            assert "us-gov-west-1" in text or "nwsa" in text, i["kind"]
+

@@ -3,6 +3,7 @@
 // busy; `cost` is one-time dollars; recurring cost shows up through monthlyCost().
 
 import { EXTRA_MACHINE_MONTH, GIB, INSTANCE_CLASSES } from "./engine.js";
+import { SEC_ACTIONS } from "./secops.js";
 import { UNC, addDataStoreStandby, addPortalMachine, dsPrimaryUp, ensureWebgisdr, exportNow } from "./arcgis.js";
 
 const ev = (f) => f.evidence || {};
@@ -456,6 +457,8 @@ Object.assign(ACTIONS, {
     },
   ],
 });
+
+Object.assign(ACTIONS, SEC_ACTIONS);
 
 export function actionsFor(finding, s) {
   return (ACTIONS[finding.code] || []).filter((a) => !a.available || a.available(s, finding));
