@@ -1,6 +1,5 @@
-// 100 levels in ten tiers. Tier 1 is playable now; later tiers are laid out with their
-// subject and titles so the path is visible, and fill in as the real tools behind them
-// are built (each tier maps to a real admin tool).
+// 100 levels in ten tiers, each mapped to the real admin tool behind it. Every tier is
+// playable; a tier only became playable once its real tool existed.
 
 export const TIERS = [
   { tier: 1, name: "Fundamentals", subject: "Your first RDS geodatabase", tool: "rdsops inventory, health, maintenance", status: "playable" },

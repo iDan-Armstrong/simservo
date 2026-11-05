@@ -119,8 +119,7 @@ PostgreSQL 16.4 with PostGIS 3.5.3 on ArcGIS 12.1 and has to fail it.
   database size and instance class) and the real `rdsops restore-drill` plans and scores
   it against recovery time and data-loss targets. Accidents (a dropped table) can only
   be undone with a point-in-time restore, which only works if backups were on.
-- Each tier is backed by a real tool. Tiers open as those tools are built: monitoring,
-  upgrades, restore drills, then ArcGIS Server, Portal and Data Store administration.
+- Each tier is backed by a real tool, and a tier only opened once its tool existed.
 - An intro tutorial, and a tutorial at each level that adds something, with links to
   the real documentation.
 - Hover help. Technical terms in findings, quests, upgrades, the ops log and tutorials

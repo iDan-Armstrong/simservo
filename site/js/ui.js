@@ -474,7 +474,7 @@ export async function showTutorial(id) {
 export function careerHtml(s) {
   const cells = LEVELS.map((l) => `<div class="${l.n < s.level ? "done" : l.n === s.level ? "now" : ""} ${l.playable ? "" : "planned"}" title="${l.n}. ${esc(l.title)} (${esc(l.tierName)})">${l.n}</div>`).join("");
   const tiers = TIERS.map((t) => `<li><b>Tier ${t.tier}: ${esc(t.name)}</b> <span class="dim">${rich(t.subject)}. ${t.status === "playable" ? "Playable now." : "Planned."} Real tool: ${esc(t.tool)}.</span></li>`).join("");
-  return `<p>100 levels in ten tiers. Each tier is backed by a real administration tool; tiers open as those tools are built.</p>
+  return `<p>100 levels in ten tiers, all playable. Each tier is backed by a real administration tool, and every finding comes from it.</p>
     <div class="career">${cells}</div><ul>${tiers}</ul>`;
 }
 
