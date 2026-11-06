@@ -256,6 +256,29 @@ const handlers = {
 
 installTooltips();
 
+// Quit: save, stop the clock and leave the operations center. Nothing is lost,
+// so the confirm step only guards against a stray click.
+let speedBeforeQuit = 1;
+async function quitShift() {
+  const was = speed;
+  setSpeed(0);
+  const go = await modal({
+    title: "End your shift?",
+    html: `<p>The clock stops and your progress is saved in this browser. Begin shift as ${game.s.callsign.replace(/</g, "&lt;")} next time to pick up where you left off.</p>`,
+    actions: [
+      { label: "Save and quit", value: true, primary: true },
+      { label: "Keep playing", value: false },
+    ],
+  });
+  if (!go) { setSpeed(was); return; }
+  speedBeforeQuit = was || 1;
+  writeSave(game.s);
+  $("quit-summary").textContent = `${game.s.callsign}, level ${game.s.level}. Shift saved.`;
+  $("game").classList.add("hidden");
+  $("quit").classList.remove("hidden");
+  $("quit-resume").focus();
+}
+
 async function start() {
   const { engine, callsign, save } = await runWizard();
   const resume = save && save.callsign === callsign && !params.has("new");
@@ -282,6 +305,13 @@ async function start() {
     return shown;
   }));
   $("btn-career").addEventListener("click", () => withPause(() => modal({ title: "Career path", html: careerHtml(game.s), actions: [{ label: "Close", value: 1, primary: true }] })));
+  $("btn-quit").addEventListener("click", quitShift);
+  $("quit-resume").addEventListener("click", () => {
+    $("quit").classList.add("hidden");
+    $("game").classList.remove("hidden");
+    setSpeed(speedBeforeQuit);
+    $("btn-quit").focus();
+  });
   if (!resume && !params.has("skipintro")) await showTutorial("intro");
   setSpeed(Number(params.get("speed") ?? 1));
 }

@@ -44,6 +44,21 @@
     </div>
   </section>
 
+  <!-- ============================== shift ended ============================== -->
+  <section id="quit" class="wizard hidden" aria-labelledby="quit-title">
+    <div class="wiz-frame">
+      <header class="wiz-head">
+        <div class="logo">SIM<span>Servo</span></div>
+        <div id="quit-title" class="wiz-sub">Shift ended</div>
+      </header>
+      <p id="quit-summary"></p>
+      <p class="dim small">Your progress is saved in this browser. You can close this tab; next time, Begin shift with the same callsign picks up where you left off.</p>
+      <div class="row quit-actions">
+        <button type="button" class="btn primary" id="quit-resume">Resume shift</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ============================== the game ============================== -->
   <main id="game" class="game hidden">
     <header class="hud">
@@ -64,9 +79,12 @@
         <button class="btn tiny" data-speed="3" title="3x">&gt;&gt;</button>
         <button class="btn tiny" data-speed="8" title="8x">&gt;&gt;&gt;</button>
       </div>
-      <button class="btn tiny" id="btn-career">Career</button>
-      <button class="btn tiny" id="btn-glossary">Glossary</button>
-      <button class="btn tiny" id="btn-help">Help</button>
+      <div class="hud-menu">
+        <button class="btn tiny" id="btn-career">Career</button>
+        <button class="btn tiny" id="btn-glossary">Glossary</button>
+        <button class="btn tiny" id="btn-help">Help</button>
+        <button class="btn tiny" id="btn-quit">Quit</button>
+      </div>
     </header>
 
     <div class="grid">

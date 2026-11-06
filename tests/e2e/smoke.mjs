@@ -302,6 +302,29 @@ try {
   console.log("failover:", JSON.stringify(fo));
   if (fo.region !== "us-west-2" || fo.drilled !== 1 || fo.until > 2) fail("drilled Region failover did not go as measured");
 
+  // Quit: confirm, saved, clock stopped, and Resume brings the game back
+  await page.evaluate(() => document.querySelectorAll("#modal").forEach((m) => m.classList.add("hidden")));
+  if (await page.isVisible("#troll:not(.hidden)")) await page.click("#troll-ok");
+  await page.click("#btn-quit");
+  await page.click("#modal-actions .btn:text-is('Keep playing')");
+  if (!(await page.isVisible("#game"))) fail("Keep playing should leave the game on screen");
+  await page.click("#btn-quit");
+  await page.click("#modal-actions .btn:text-is('Save and quit')");
+  await page.waitForSelector("#quit:not(.hidden)");
+  const quit = await page.evaluate(() => {
+    const before = window.simservo.s.tick;
+    const saved = JSON.parse(localStorage.getItem("simservo.save.v1") || "null");
+    return { before, savedTick: saved && saved.tick, summary: document.getElementById("quit-summary").textContent };
+  });
+  await page.waitForTimeout(300);
+  const tickAfterQuit = await page.evaluate(() => window.simservo.s.tick);
+  console.log("quit:", JSON.stringify(quit));
+  if (quit.savedTick !== quit.before) fail("Save and quit did not save the current state");
+  if (tickAfterQuit !== quit.before) fail("the clock kept running after quitting");
+  if (!/level \d+/.test(quit.summary)) fail(`quit screen summary missing: ${quit.summary}`);
+  await page.click("#quit-resume");
+  if (!(await page.isVisible("#game")) || (await page.isVisible("#quit"))) fail("Resume shift did not return to the game");
+
   // Trollzilla on demand
   await page.goto(`http://localhost:${PORT}/?fast&seed=7&speed=0&trollzilla&skipintro&new`);
   await page.waitForSelector("#wiz-form:not(.hidden)", { timeout: 120_000 });
