@@ -142,6 +142,15 @@ npm run serve          # http://localhost:8080
 URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 `?skipintro`, `?new` to ignore a save, and `?trollzilla` if you cannot wait.
 
+## Accounts (optional)
+
+Progress saves in the browser. With accounts turned on, a player can also create an
+account with a passkey and continue the same shift on another device. No password and
+no email: the server keeps the callsign, the passkey's public key and the save.
+The service is a Cloudflare Worker in [`worker/`](worker/README.md); see
+[ADR 0002](docs/adr/0002-optional-accounts-with-passkeys.md). It is off until
+`site/js/config.js` names the service.
+
 ## How it is tested
 
 | Test | What it proves |
@@ -154,14 +163,17 @@ URL options: `?seed=42` for a repeatable game, `?speed=0` to start paused,
 | `tests/secops.test.mjs` | Every real playbook (exported to a fixture) runs clean in its own order; evidence destroyed early, recovery before containment, a late CISA report and the review out of order are each caught; the contingencies fire; posture fixes change what the real tools read |
 | `tests/dr.test.mjs` | DR opens at 16; backup replication needs the DR key and costs money; a zone drill needs Multi-AZ and exposes the DNS cache; drills measure the times the real tool uses; a drilled Region failover beats an undrilled one; promotion uses up the replica |
 | `tests/fleet.test.mjs` | The fleet opens after the takeover, six sites arrive on schedule, fixes change the facts, GovCloud ARNs |
+| `worker/test/accounts.test.mjs` | Passkey sign-up and sign-in with single-use, expiring challenges; callsigns unique regardless of case; only session hashes stored; sessions expire and log out; saves per user and capped at 256 KB; delete account removes everything and ends every session; rate limits |
+| `tests/e2e/accounts.mjs` | The real Worker under `wrangler dev` and Chromium's virtual authenticator: sign up on one device, play and quit, sign in on a second device with the synced passkey and resume the same shift, foreign origins refused, delete account |
 | `tools/check-links.mjs` | Every tutorial link answers |
 
 ## Architecture decisions
 
 - [ADR 0001: Run the real rules in the browser](docs/adr/0001-run-the-real-rules-in-the-browser.md)
+- [ADR 0002: Optional accounts with passkeys on a Cloudflare Worker](docs/adr/0002-optional-accounts-with-passkeys.md)
 - rdsops [ADR 0006](https://github.com/iDan-Armstrong/rds-geodatabase-ops/blob/main/docs/adr/0006-checks-are-pure-functions-over-snapshots.md):
   checks are pure functions over snapshots, which is what makes this game possible.
 
 ## Credits
 
-Trollzilla is an original creature. Pyodide is MPL-2.0. SIMServo is MIT.
+Trollzilla is an original creature. Pyodide is MPL-2.0. SimpleWebAuthn is MIT. SIMServo is MIT.

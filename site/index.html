@@ -37,6 +37,16 @@
           <button type="submit" class="btn primary" id="wiz-go">Begin shift</button>
         </div>
         <p class="dim small" id="wiz-resume"></p>
+        <div class="acct hidden" id="acct">
+          <p class="small" id="acct-status" aria-live="polite"></p>
+          <div class="row">
+            <button type="button" class="btn" id="acct-signin">Sign in with a passkey</button>
+            <button type="button" class="btn" id="acct-signup">Create an account for this callsign</button>
+            <button type="button" class="btn hidden" id="acct-signout">Sign out</button>
+            <button type="button" class="btn hidden" id="acct-delete">Delete account</button>
+          </div>
+          <p class="dim small">Optional. An account keeps your shift on the SIMServo server so you can continue on another device. It stores your callsign, your passkey's public key and your save, and nothing else. No email, no password.</p>
+        </div>
       </form>
       <p class="wiz-foot dim small">The "firmware" is real: Pyodide (Python compiled to WebAssembly) and the
         <a href="https://github.com/iDan-Armstrong/rds-geodatabase-ops" target="_blank" rel="noopener">rdsops</a>
@@ -52,7 +62,7 @@
         <div id="quit-title" class="wiz-sub">Shift ended</div>
       </header>
       <p id="quit-summary"></p>
-      <p class="dim small">Your progress is saved in this browser. You can close this tab; next time, Begin shift with the same callsign picks up where you left off.</p>
+      <p class="dim small" id="quit-where">Your progress is saved in this browser. You can close this tab; next time, Begin shift with the same callsign picks up where you left off.</p>
       <div class="row quit-actions">
         <button type="button" class="btn primary" id="quit-resume">Resume shift</button>
       </div>

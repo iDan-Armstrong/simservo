@@ -2,6 +2,7 @@
 //   site/vendor/pyodide/      Pyodide core files from node_modules/pyodide
 //   site/vendor/rdsops-*.whl  rdsops at RDSOPS_REF   (npm run rdsops)
 //   site/vendor/egisops-*.whl egisops at EGISOPS_REF (npm run egisops)
+//   site/vendor/simplewebauthn-browser.umd.min.js  passkey helper for optional accounts
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -21,6 +22,9 @@ for (const f of core) {
   copyFileSync(join(pyodideSrc, f), join(vendor, "pyodide", f));
   if (f === "pyodide.asm.wasm" || f === "python_stdlib.zip") pyodideBytes += statSync(join(pyodideSrc, f)).size;
 }
+const webauthnSrc = join(root, "node_modules", "@simplewebauthn", "browser", "dist", "bundle", "index.umd.min.js");
+if (!existsSync(webauthnSrc)) throw new Error("@simplewebauthn/browser missing: run npm ci");
+copyFileSync(webauthnSrc, join(vendor, "simplewebauthn-browser.umd.min.js"));
 const wheels = [];
 for (const [pkg, dir, refFile] of [["rdsops", wheelDir, "RDSOPS_REF"], ["egisops", egisDir, "EGISOPS_REF"]]) {
   if (!existsSync(dir)) throw new Error(`${pkg} wheel missing: run npm run ${pkg}`);

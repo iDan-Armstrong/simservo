@@ -1,0 +1,18 @@
+name = "simservo-accounts"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# The passkey relying party is the GitHub Pages host the game is served from.
+RP_ID = "idan-armstrong.github.io"
+RP_NAME = "SIMServo"
+ORIGINS = "https://idan-armstrong.github.io"
+
+[[durable_objects.bindings]]
+name = "ACCOUNTS"
+class_name = "AccountStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AccountStore"]

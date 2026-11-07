@@ -1,0 +1,19 @@
+{
+  "name": "simservo-accounts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Passkey accounts and cloud saves for SIMServo (Cloudflare Worker)",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev --var RP_ID:localhost --var ORIGINS:http://localhost:8080",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "13.3.3"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

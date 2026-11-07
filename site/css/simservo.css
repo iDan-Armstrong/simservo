@@ -79,6 +79,11 @@ a { color: var(--cyan); }
   padding: 8px 10px; font: 700 16px var(--mono); text-transform: uppercase;
 }
 .wiz-foot { margin: 14px 0 0; }
+.acct { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.acct p { margin: 0 0 8px; }
+.acct .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.acct .ok { color: var(--neon); }
+.acct .fail { color: var(--fail); }
 
 /* ------------------------------------------------------------------- hud */
 .game { padding: 10px 16px 16px; }

@@ -7,11 +7,15 @@ import { UPGRADES, ACTIONS } from "./actions.js";
 import { LEVELS } from "./levels.js";
 import { appendLog, careerHtml, glossaryHtml, modal, renderAll, showTutorial, toast, wireGlossarySearch } from "./ui.js";
 import { installTooltips } from "./tooltip.js";
+import { Account, accountsAvailable } from "./account.js";
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const FAST = params.has("fast");
 const SAVE_KEY = "simservo.save.v1";
+const SAVED_AT_KEY = "simservo.savedAt.v1";
+const BACKUP_KEY = "simservo.save.backup.v1";
+const account = accountsAvailable() ? new Account() : null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, FAST ? 0 : ms));
 
 // --------------------------------------------------------------- storage
@@ -21,11 +25,115 @@ function loadSave() {
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
-function writeSave(s) {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { /* private mode: play without saving */ }
+function localSavedAt() {
+  try { return Number(localStorage.getItem(SAVED_AT_KEY)) || 0; } catch { return 0; }
+}
+function writeSave(s, savedAt = Date.now()) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    localStorage.setItem(SAVED_AT_KEY, String(savedAt));
+  } catch { /* private mode: play without saving */ }
+  if (account) account.push(s, savedAt);
 }
 function clearSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(SAVED_AT_KEY); } catch { /* ignore */ }
+}
+
+// --------------------------------------------------------------- account
+// Newer save wins. A local shift replaced by a newer cloud one is kept in BACKUP_KEY.
+async function reconcile() {
+  const local = loadSave();
+  const localAt = localSavedAt();
+  const cloud = await account.pull();
+  if (cloud && (!local || cloud.savedAt > localAt)) {
+    if (local && JSON.stringify(local) !== JSON.stringify(cloud.state)) {
+      try { localStorage.setItem(BACKUP_KEY, JSON.stringify(local)); } catch { /* ignore */ }
+    }
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(cloud.state));
+      localStorage.setItem(SAVED_AT_KEY, String(cloud.savedAt));
+    } catch { /* ignore */ }
+    return "cloud";
+  }
+  if (local && (!cloud || localAt > cloud.savedAt)) {
+    account.push(local, localAt || Date.now());
+    await account.flush();
+    return "local";
+  }
+  return "same";
+}
+
+function showResume(save) {
+  $("wiz-resume").textContent = save ? `A saved shift was found (${save.callsign}, level ${save.level}). Begin shift resumes it; type a new callsign to start over.` : "";
+  if (save) $("callsign").value = save.callsign;
+}
+
+function renderAccount(msg = "", cls = "") {
+  if (!account) return;
+  $("acct").classList.remove("hidden");
+  const on = account.signedIn;
+  $("acct-status").textContent = msg || (on ? `Signed in as ${account.callsign}. Your shift is saved to your account.` : "Playing without an account. Your shift is saved in this browser only.");
+  $("acct-status").className = `small ${cls}`;
+  for (const id of ["acct-signin", "acct-signup"]) $(id).classList.toggle("hidden", on);
+  for (const id of ["acct-signout", "acct-delete"]) $(id).classList.toggle("hidden", !on);
+}
+
+async function accountAction(btn, busy, fn) {
+  document.querySelectorAll("#acct button").forEach((b) => { b.disabled = true; });
+  const label = btn.textContent;
+  btn.textContent = busy;
+  try {
+    const note = await fn();
+    renderAccount(note || "", note ? "ok" : "");
+  } catch (e) {
+    renderAccount(e.message, e.code === "cancelled" ? "dim" : "fail");
+  } finally {
+    btn.textContent = label;
+    document.querySelectorAll("#acct button").forEach((b) => { b.disabled = false; });
+  }
+}
+
+async function syncNote() {
+  const where = await reconcile();
+  showResume(loadSave());
+  if (where === "cloud") return `Signed in as ${account.callsign}. Loaded your saved shift from your account.`;
+  if (where === "local") return `Signed in as ${account.callsign}. This browser's shift is now saved to your account.`;
+  return "";
+}
+
+function wireAccount() {
+  if (!account) return;
+  renderAccount();
+  $("acct-signin").addEventListener("click", (e) => accountAction(e.currentTarget, "Waiting for passkey...", async () => {
+    await account.signIn();
+    return syncNote();
+  }));
+  $("acct-signup").addEventListener("click", (e) => accountAction(e.currentTarget, "Waiting for passkey...", async () => {
+    const callsign = ($("callsign").value || "").trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9_-]{2,19}$/.test(callsign)) {
+      throw Object.assign(new Error("For an account, the callsign needs 3 to 20 letters, numbers, dashes or underscores."), { code: "bad_callsign" });
+    }
+    await account.signUp(callsign);
+    return syncNote();
+  }));
+  $("acct-signout").addEventListener("click", (e) => accountAction(e.currentTarget, "Signing out...", async () => {
+    await account.signOut();
+    return "Signed out. Your shift is still saved in this browser.";
+  }));
+  $("acct-delete").addEventListener("click", (e) => accountAction(e.currentTarget, "Deleting...", async () => {
+    const yes = await modal({
+      title: "Delete account",
+      html: `<p>This deletes ${account.callsign}, its passkey record and the shift saved on the server. The copy in this browser stays. This cannot be undone.</p>`,
+      actions: [{ label: "Delete account", value: true, primary: true }, { label: "Keep it", value: false }],
+    });
+    if (!yes) return "";
+    await account.deleteAccount();
+    return "Account deleted. Your shift is still saved in this browser.";
+  }));
+  addEventListener("pagehide", () => { account.flush({ keepalive: true }).catch(() => {}); });
+  if (account.signedIn) {
+    accountAction($("acct-signout"), "Sign out", syncNote);
+  }
 }
 
 // ---------------------------------------------------------------- wizard
@@ -83,9 +191,8 @@ async function runWizard() {
   stepState("selftest", "done");
   stepState("callsign", "active");
   bar(100, "ready");
-  const save = loadSave();
-  $("wiz-resume").textContent = save ? `A saved shift was found (${save.callsign}, level ${save.level}). Begin shift resumes it; type a new callsign to start over.` : "";
-  if (save) $("callsign").value = save.callsign;
+  showResume(loadSave());
+  wireAccount();
   $("wiz-form").classList.remove("hidden");
   $("callsign").focus();
   const callsign = await new Promise((resolve) => {
@@ -95,7 +202,7 @@ async function runWizard() {
     }, { once: true });
   });
   stepState("callsign", "done");
-  return { engine, callsign, save };
+  return { engine, callsign, save: loadSave() };
 }
 
 // ------------------------------------------------------------------ game
@@ -274,6 +381,12 @@ async function quitShift() {
   speedBeforeQuit = was || 1;
   writeSave(game.s);
   $("quit-summary").textContent = `${game.s.callsign}, level ${game.s.level}. Shift saved.`;
+  if (account && account.signedIn) {
+    $("quit-where").textContent = `Saved in this browser and to your account (${account.callsign}). Sign in on another device to pick it up there.`;
+    account.flush().catch(() => {
+      $("quit-where").textContent = "Saved in this browser. The account copy will update when the service can be reached.";
+    });
+  }
   $("game").classList.add("hidden");
   $("quit").classList.remove("hidden");
   $("quit-resume").focus();
